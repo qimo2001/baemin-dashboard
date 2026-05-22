@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>배달현황 대시보드</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --surface2: #1c1c28;
+    --border: #2a2a3d;
+    --accent: #ffcd00;
+    --accent2: #ff6b35;
+    --text: #f0f0ff;
+    --text-muted: #7070a0;
+    --complete: #22d3a0;
+    --reject: #ff4466;
+    --cancel: #ff8c42;
+    --rider: #c44dff;
+    --morning: #ffb84d;
+    --afternoon: #4db8ff;
+    --evening: #ff6b6b;
+    --night: #a78bfa;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans KR', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255,205,0,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,205,0,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 24px;
+  }
+
+  /* Header */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 32px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .logo-area {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .logo-badge {
+    background: var(--accent);
+    color: #000;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    padding: 6px 12px;
+    border-radius: 4px;
+  }
+
+  h1 {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  h1 span {
+    color: var(--text-muted);
+    font-weight: 300;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .last-updated {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  .refresh-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-family: 'Noto Sans KR', sans-serif;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .refresh-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .refresh-btn.loading {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .auto-badge {
+    background: rgba(34,211,160,0.15);
+    border: 1px solid rgba(34,211,160,0.3);
+    color: var(--complete);
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* Status indicator */
+  .live-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--complete);
+    display: inline-block;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.8); }
+  }
+
+  /* Error banner */
+  .error-banner {
+    background: rgba(255,68,102,0.1);
+    border: 1px solid rgba(255,68,102,0.3);
+    color: var(--reject);
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    font-size: 14px;
+    display: none;
+  }
+
+  /* Main stats grid */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s, border-color 0.2s;
+  }
+
+  .stat-card:hover {
+    transform: translateY(-2px);
+  }
+
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+  }
+
+  .stat-card.complete::before { background: var(--complete); }
+  .stat-card.reject::before { background: var(--reject); }
+  .stat-card.cancel::before { background: var(--cancel); }
+  .stat-card.rider::before { background: var(--rider); }
+
+  .stat-card:hover { border-color: #3a3a55; }
+
+  .stat-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    letter-spacing: 0.05em;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+  }
+
+  .stat-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 48px;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+
+  .stat-card.complete .stat-value { color: var(--complete); }
+  .stat-card.reject .stat-value { color: var(--reject); }
+  .stat-card.cancel .stat-value { color: var(--cancel); }
+  .stat-card.rider .stat-value { color: var(--rider); }
+
+  .stat-sub {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  .stat-icon {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    font-size: 28px;
+    opacity: 0.15;
+  }
+
+  /* Time section */
+  .time-section {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+  }
+
+  .panel-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* Time slot bars */
+  .time-slots {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .time-slot {
+    background: var(--surface2);
+    border-radius: 10px;
+    padding: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .time-slot-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .time-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .time-slot-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+
+  .time-slot-hours {
+    font-size: 10px;
+    color: var(--text-muted);
+    opacity: 0.6;
+    margin-left: auto;
+  }
+
+  .time-slot-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 36px;
+    font-weight: 700;
+  }
+
+  .time-slot-unit {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-left: 4px;
+  }
+
+  .time-slot-bar {
+    margin-top: 10px;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .time-slot-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .morning .time-dot, .morning .time-slot-bar-fill { background: var(--morning); }
+  .morning .time-slot-value { color: var(--morning); }
+  .afternoon .time-dot, .afternoon .time-slot-bar-fill { background: var(--afternoon); }
+  .afternoon .time-slot-value { color: var(--afternoon); }
+  .evening .time-dot, .evening .time-slot-bar-fill { background: var(--evening); }
+  .evening .time-slot-value { color: var(--evening); }
+  .night .time-dot, .night .time-slot-bar-fill { background: var(--night); }
+  .night .time-slot-value { color: var(--night); }
+
+  /* Hourly chart */
+  .chart-area {
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    height: 100px;
+    padding-top: 10px;
+  }
+
+  .chart-bar-wrap {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    height: 100%;
+    justify-content: flex-end;
+  }
+
+  .chart-bar {
+    width: 100%;
+    background: linear-gradient(to top, var(--accent), rgba(255,205,0,0.3));
+    border-radius: 3px 3px 0 0;
+    transition: height 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    cursor: pointer;
+    min-height: 2px;
+  }
+
+  .chart-bar:hover {
+    filter: brightness(1.3);
+  }
+
+  .chart-bar .tooltip {
+    display: none;
+    position: absolute;
+    bottom: 110%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    white-space: nowrap;
+    z-index: 10;
+  }
+
+  .chart-bar:hover .tooltip { display: block; }
+
+  .chart-label {
+    font-size: 9px;
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* Rider table */
+  .rider-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 24px;
+  }
+
+  .rider-section-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  thead th {
+    padding: 12px 20px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+  }
+
+  tbody tr {
+    border-bottom: 1px solid rgba(42,42,61,0.5);
+    transition: background 0.15s;
+  }
+
+  tbody tr:hover { background: var(--surface2); }
+  tbody tr:last-child { border-bottom: none; }
+
+  td {
+    padding: 14px 20px;
+    font-size: 14px;
+  }
+
+  .td-name { font-weight: 500; }
+
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  .status-running {
+    background: rgba(34,211,160,0.12);
+    color: var(--complete);
+    border: 1px solid rgba(34,211,160,0.25);
+  }
+
+  .status-stopped {
+    background: rgba(112,112,160,0.12);
+    color: var(--text-muted);
+    border: 1px solid rgba(112,112,160,0.2);
+  }
+
+  .num-cell {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .num-complete { color: var(--complete); }
+  .num-reject { color: var(--reject); }
+  .num-cancel { color: var(--cancel); }
+  .num-rider { color: var(--rider); }
+  .num-neutral { color: var(--text-muted); }
+
+  /* Loading skeleton */
+  .skeleton {
+    background: linear-gradient(90deg, var(--surface2) 25%, var(--border) 50%, var(--surface2) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: 4px;
+  }
+
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  /* Footer */
+  footer {
+    text-align: center;
+    padding: 20px;
+    color: var(--text-muted);
+    font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    border-top: 1px solid var(--border);
+    margin-top: 8px;
+  }
+
+  @media (max-width: 900px) {
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    .time-section { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 600px) {
+    .stats-grid { grid-template-columns: 1fr 1fr; }
+    .stat-value { font-size: 36px; }
+    h1 { font-size: 18px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrapper">
+  <header>
+    <div class="logo-area">
+      <div class="logo-badge">🛵 BAEMIN</div>
+      <div>
+        <h1>배달현황 <span>실시간 대시보드</span></h1>
+      </div>
+    </div>
+    <div class="header-right">
+      <span class="live-dot"></span>
+      <span class="last-updated" id="lastUpdated">--:--:--</span>
+      <span class="auto-badge" id="autoStatus">30초 갱신</span>
+      <button class="refresh-btn" id="refreshBtn" onclick="loadData()">
+        ↻ 새로고침
+      </button>
+    </div>
+  </header>
+
+  <div class="error-banner" id="errorBanner"></div>
+
+  <!-- 핵심 지표 4개 -->
+  <div class="stats-grid">
+    <div class="stat-card complete">
+      <div class="stat-icon">✅</div>
+      <div class="stat-label">완료</div>
+      <div class="stat-value" id="valComplete">–</div>
+      <div class="stat-sub">오늘 배달 완료 건수</div>
+    </div>
+    <div class="stat-card reject">
+      <div class="stat-icon">🚫</div>
+      <div class="stat-label">거절</div>
+      <div class="stat-value" id="valReject">–</div>
+      <div class="stat-sub">라이더 거절 건수</div>
+    </div>
+    <div class="stat-card cancel">
+      <div class="stat-icon">❌</div>
+      <div class="stat-label">배차취소</div>
+      <div class="stat-value" id="valCancel">–</div>
+      <div class="stat-sub">배차 취소 건수</div>
+    </div>
+    <div class="stat-card rider">
+      <div class="stat-icon">⚠️</div>
+      <div class="stat-label">배달취소(라이더귀책)</div>
+      <div class="stat-value" id="valRider">–</div>
+      <div class="stat-sub">라이더 귀책 취소</div>
+    </div>
+  </div>
+
+  <!-- 시간대별 + 시간별 차트 -->
+  <div class="time-section">
+    <!-- 시간대별 -->
+    <div class="panel">
+      <div class="panel-title">⏰ 시간대별 완료</div>
+      <div class="time-slots">
+        <div class="time-slot morning">
+          <div class="time-slot-header">
+            <div class="time-dot"></div>
+            <div class="time-slot-label">아침점심피크</div>
+            <div class="time-slot-hours">06–13시</div>
+          </div>
+          <div>
+            <span class="time-slot-value" id="tMorning">–</span>
+            <span class="time-slot-unit">건</span>
+          </div>
+          <div class="time-slot-bar"><div class="time-slot-bar-fill" id="bMorning" style="width:0%"></div></div>
+        </div>
+        <div class="time-slot afternoon">
+          <div class="time-slot-header">
+            <div class="time-dot"></div>
+            <div class="time-slot-label">오후논피크</div>
+            <div class="time-slot-hours">13–17시</div>
+          </div>
+          <div>
+            <span class="time-slot-value" id="tAfternoon">–</span>
+            <span class="time-slot-unit">건</span>
+          </div>
+          <div class="time-slot-bar"><div class="time-slot-bar-fill" id="bAfternoon" style="width:0%"></div></div>
+        </div>
+        <div class="time-slot evening">
+          <div class="time-slot-header">
+            <div class="time-dot"></div>
+            <div class="time-slot-label">저녁피크</div>
+            <div class="time-slot-hours">17–22시</div>
+          </div>
+          <div>
+            <span class="time-slot-value" id="tEvening">–</span>
+            <span class="time-slot-unit">건</span>
+          </div>
+          <div class="time-slot-bar"><div class="time-slot-bar-fill" id="bEvening" style="width:0%"></div></div>
+        </div>
+        <div class="time-slot night">
+          <div class="time-slot-header">
+            <div class="time-dot"></div>
+            <div class="time-slot-label">심야논피크</div>
+            <div class="time-slot-hours">22–06시</div>
+          </div>
+          <div>
+            <span class="time-slot-value" id="tNight">–</span>
+            <span class="time-slot-unit">건</span>
+          </div>
+          <div class="time-slot-bar"><div class="time-slot-bar-fill" id="bNight" style="width:0%"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 시간별 막대 차트 -->
+    <div class="panel">
+      <div class="panel-title">📊 시간별 완료 추이</div>
+      <div class="chart-area" id="chartArea">
+        <!-- JS로 채움 -->
+      </div>
+    </div>
+  </div>
+
+  <!-- 라이더별 테이블 -->
+  <div class="rider-section">
+    <div class="rider-section-header">
+      <div class="panel-title" style="margin:0">👤 라이더별 현황</div>
+      <span style="font-size:12px; color:var(--text-muted)">총 <span id="totalRiders">–</span>명</span>
+    </div>
+    <div style="overflow-x:auto">
+      <table>
+        <thead>
+          <tr>
+            <th>이름</th>
+            <th>운행상태</th>
+            <th>완료</th>
+            <th>거절</th>
+            <th>배차취소</th>
+            <th>배달취소(귀책)</th>
+            <th>전화번호</th>
+          </tr>
+        </thead>
+        <tbody id="riderTable">
+          <tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding:40px">불러오는 중...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <footer>
+    BAEMIN CONNECT BIZ · 배달현황 실시간 대시보드 · <span id="centerName">–</span>
+  </footer>
+</div>
+
+<script>
+const CENTER_ID = 'DP2605044902';
+const CENTER_NAME = '표준광주광산A디스테이션디패스';
+let refreshTimer = null;
+
+document.getElementById('centerName').textContent = CENTER_NAME;
+
+async function loadData() {
+  const btn = document.getElementById('refreshBtn');
+  btn.classList.add('loading');
+  btn.textContent = '⟳ 로딩중...';
+
+  try {
+    const response = await fetch(
+      `https://api-deliverycenter.baemin.com/v2/management/delivery-status?page=0&size=200&orderName=name&orderBy=asc&name=&userId=&phoneNumber=&riderStatus=`,
+      {
+        credentials: 'include',
+        headers: { 'center-id': CENTER_ID }
+      }
+    );
+
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+
+    if (data.code) throw new Error(data.message || '데이터 로드 실패');
+
+    renderData(data);
+    document.getElementById('errorBanner').style.display = 'none';
+    document.getElementById('lastUpdated').textContent = new Date().toLocaleTimeString('ko-KR');
+
+  } catch (err) {
+    const banner = document.getElementById('errorBanner');
+    banner.style.display = 'block';
+    banner.textContent = `⚠ 데이터 로드 실패: ${err.message} — 배민커넥트비즈에 로그인되어 있는지 확인하세요.`;
+    console.error(err);
+  } finally {
+    btn.classList.remove('loading');
+    btn.innerHTML = '↻ 새로고침';
+  }
+}
+
+function renderData(data) {
+  const total = data.deliveryStatusTotalResponse;
+  const riders = data.deliveryStatusResponse?.content || [];
+
+  // 핵심 지표
+  animateNumber('valComplete', total.totalCompleted);
+  animateNumber('valReject', total.totalRejected);
+  animateNumber('valCancel', total.totalCanceled);
+  animateNumber('valRider', total.totalRiderFault);
+
+  // 시간대별 — API 필드 매핑
+  // 아침점심피크: totalMorningCompleted + totalLunchCompleted
+  // 오후논피크: totalAfternoonCompleted (없을 수 있으니 시간별로 계산)
+  // 저녁피크: totalDinnerCompleted
+  // 심야논피크: totalNightCompleted
+
+  const hourly = total.totalHourlyCompleted || [];
+  const byHour = {};
+  hourly.forEach(h => { byHour[h.hour] = h.count; });
+
+  // 시간대 범위 계산
+  const morning   = sumHours(byHour, 6, 13);   // 06~12 (아침점심피크)
+  const afternoon = sumHours(byHour, 13, 17);  // 13~16 (오후논피크)
+  const evening   = sumHours(byHour, 17, 22);  // 17~21 (저녁피크)
+  const night     = sumHours(byHour, 22, 6);   // 22~05 (심야논피크)
+
+  // API 값 우선, 없으면 계산값
+  const mVal = total.totalMorningCompleted !== undefined ? (total.totalMorningCompleted + (total.totalLunchCompleted||0)) : morning;
+  const aVal = afternoon;
+  const eVal = total.totalDinnerCompleted !== undefined ? total.totalDinnerCompleted : evening;
+  const nVal = total.totalNightCompleted !== undefined ? total.totalNightCompleted : night;
+
+  document.getElementById('tMorning').textContent = mVal;
+  document.getElementById('tAfternoon').textContent = aVal;
+  document.getElementById('tEvening').textContent = eVal;
+  document.getElementById('tNight').textContent = nVal;
+
+  const maxTime = Math.max(mVal, aVal, eVal, nVal, 1);
+  document.getElementById('bMorning').style.width = (mVal / maxTime * 100) + '%';
+  document.getElementById('bAfternoon').style.width = (aVal / maxTime * 100) + '%';
+  document.getElementById('bEvening').style.width = (eVal / maxTime * 100) + '%';
+  document.getElementById('bNight').style.width = (nVal / maxTime * 100) + '%';
+
+  // 시간별 차트
+  renderChart(hourly);
+
+  // 라이더 테이블
+  document.getElementById('totalRiders').textContent = riders.length;
+  renderRiderTable(riders);
+}
+
+function sumHours(byHour, from, to) {
+  let total = 0;
+  if (from < to) {
+    for (let h = from; h < to; h++) total += byHour[h] || 0;
+  } else {
+    for (let h = from; h < 24; h++) total += byHour[h] || 0;
+    for (let h = 0; h < to; h++) total += byHour[h] || 0;
+  }
+  return total;
+}
+
+function renderChart(hourly) {
+  const area = document.getElementById('chartArea');
+  const byHour = {};
+  hourly.forEach(h => { byHour[h.hour] = h.count; });
+  const maxVal = Math.max(...Object.values(byHour), 1);
+
+  area.innerHTML = '';
+  for (let h = 0; h < 24; h++) {
+    const cnt = byHour[h] || 0;
+    const pct = (cnt / maxVal * 88);
+    const wrap = document.createElement('div');
+    wrap.className = 'chart-bar-wrap';
+    wrap.innerHTML = `
+      <div class="chart-bar" style="height:${pct}px">
+        <div class="tooltip">${h}시 ${cnt}건</div>
+      </div>
+      <div class="chart-label">${h}</div>
+    `;
+    area.appendChild(wrap);
+  }
+}
+
+function renderRiderTable(riders) {
+  const tbody = document.getElementById('riderTable');
+
+  if (!riders.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:40px">라이더 데이터 없음</td></tr>';
+    return;
+  }
+
+  // 합계 행 먼저 계산
+  const sumC = riders.reduce((a, r) => a + (r.completed || 0), 0);
+  const sumRej = riders.reduce((a, r) => a + (r.rejected || 0), 0);
+  const sumCan = riders.reduce((a, r) => a + (r.canceled || 0), 0);
+  const sumRf = riders.reduce((a, r) => a + (r.riderFault || 0), 0);
+
+  tbody.innerHTML = `
+    <tr style="background:rgba(255,205,0,0.05); border-bottom:2px solid var(--border)">
+      <td class="td-name" style="color:var(--accent); font-weight:700">합계</td>
+      <td>–</td>
+      <td class="num-cell num-complete">${sumC}</td>
+      <td class="num-cell num-reject">${sumRej}</td>
+      <td class="num-cell num-cancel">${sumCan}</td>
+      <td class="num-cell num-rider">${sumRf}</td>
+      <td style="color:var(--text-muted)">–</td>
+    </tr>
+    ${riders.map(r => {
+      const isRunning = r.riderStatus === 'RUNNING';
+      const statusBadge = isRunning
+        ? `<span class="status-badge status-running">● 운행중</span>`
+        : `<span class="status-badge status-stopped">○ 운행종료</span>`;
+      return `
+        <tr>
+          <td class="td-name">${r.name || '–'}</td>
+          <td>${statusBadge}</td>
+          <td class="num-cell num-complete">${r.completed || 0}</td>
+          <td class="num-cell num-reject">${r.rejected || 0}</td>
+          <td class="num-cell num-cancel">${r.canceled || 0}</td>
+          <td class="num-cell num-rider">${r.riderFault || 0}</td>
+          <td style="color:var(--text-muted); font-family:JetBrains Mono,monospace; font-size:12px">${r.phoneNumber || '–'}</td>
+        </tr>
+      `;
+    }).join('')}
+  `;
+}
+
+function animateNumber(id, target) {
+  const el = document.getElementById(id);
+  const current = parseInt(el.textContent) || 0;
+  const diff = target - current;
+  const steps = 20;
+  let step = 0;
+  const timer = setInterval(() => {
+    step++;
+    el.textContent = Math.round(current + diff * (step / steps));
+    if (step >= steps) clearInterval(timer);
+  }, 20);
+}
+
+// 자동 갱신 30초
+function startAutoRefresh() {
+  if (refreshTimer) clearInterval(refreshTimer);
+  refreshTimer = setInterval(loadData, 30000);
+}
+
+// 초기 로드
+loadData();
+startAutoRefresh();
+</script>
+</body>
+</html>
