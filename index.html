@@ -448,11 +448,37 @@ function splitCSVLine(line) {
 }
 function toNum(v){ if(!v)return 0; const n=parseInt(v.toString().replace(/[^0-9\-]/g,''),10); return isNaN(n)?0:n; }
 
+// ── 영업일 기준 날짜 계산 (06:00 리셋) ──
+// 현재 시각이 06:00 미만이면 어제가 영업일 기준 "오늘"
+function getBusinessDate() {
+  const now = new Date();
+  if (now.getHours() < 6) {
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    return yesterday.toISOString().slice(0, 10);
+  }
+  return now.toISOString().slice(0, 10);
+}
+
+// 영업일 기준 오늘의 데이터 범위: 전날 06:00 ~ 오늘 05:59
+// 즉 bizDate의 06:00 ~ 다음날 05:59
+function isInBusinessDay(datetimeStr, bizDate) {
+  // bizDate: "YYYY-MM-DD"
+  const from = new Date(bizDate + 'T06:00:00');
+  const next = new Date(from);
+  next.setDate(next.getDate() + 1); // 다음날 06:00 (미만까지 포함)
+  const dt = new Date(datetimeStr.replace(' ', 'T'));
+  return dt >= from && dt < next;
+}
+
 // ── 렌더링 전체 ──
 function renderAll() {
-  renderCards(allRows);
-  renderTimeCards(allRows);
-  renderTable(allRows);
+  const bizDate = getBusinessDate();
+  const todayRows = allRows.filter(r => isInBusinessDay(r.datetime, bizDate));
+
+  renderCards(todayRows);
+  renderTimeCards(todayRows, bizDate);
+  renderTable(allRows); // 테이블은 전체 데이터 표시
 }
 
 function sum(arr,k){ return arr.reduce((a,r)=>a+(r[k]||0),0); }
@@ -464,39 +490,28 @@ function renderCards(rows) {
   setText('valRider',    sum(rows,'rider'));
 }
 
-function renderTimeCards(rows) {
+function renderTimeCards(rows, bizDate) {
   const slots = ['morning','afternoon','evening','night'];
-  const today = todayStr();
-  const dow = new Date(today + 'T00:00:00').getDay();
-  const goalForToday = getGoal(today);
-
-  // 기간 합산: 각 날짜 목표 합산
-  const uniqueDates = [...new Set(rows.map(r=>r.date))];
-  const goalTotals = { morning:0, afternoon:0, evening:0, night:0 };
-  uniqueDates.forEach(d => {
-    const g = getGoal(d);
-    slots.forEach(s => goalTotals[s] += g[s]);
-  });
-  // 데이터 없으면 오늘 목표
-  if (uniqueDates.length === 0) slots.forEach(s => goalTotals[s] = goalForToday[s]);
+  const goal = getGoal(bizDate);
+  const dow = new Date(bizDate + 'T06:00:00').getDay();
 
   slots.forEach(slot => {
     const actual = sum(rows, slot);
-    const goal   = goalTotals[slot];
-    const pct    = goal > 0 ? Math.min(Math.round(actual/goal*100), 999) : 0;
-    const fillW  = goal > 0 ? Math.min(actual/goal*100, 100) : 0;
-    const diff   = actual - goal;
+    const g      = goal[slot];
+    const pct    = g > 0 ? Math.min(Math.round(actual/g*100), 999) : 0;
+    const fillW  = g > 0 ? Math.min(actual/g*100, 100) : 0;
+    const diff   = actual - g;
 
     setText(`val-${slot}`,  actual);
-    setText(`goal-${slot}`, goal);
+    setText(`goal-${slot}`, g);
     setText(`pct-${slot}`,  `${pct}%`);
     document.getElementById(`fill-${slot}`).style.width = fillW + '%';
 
     const badge = document.getElementById(`badge-${slot}`);
-    if (actual >= goal && goal > 0) {
+    if (actual >= g && g > 0) {
       badge.textContent = `✓ 달성 (+${diff})`;
       badge.className = 'achieve-badge hit';
-    } else if (goal > 0) {
+    } else if (g > 0) {
       badge.textContent = `✗ ${diff}건 부족`;
       badge.className = 'achieve-badge miss';
     } else {
@@ -504,10 +519,8 @@ function renderTimeCards(rows) {
       badge.className = 'achieve-badge none';
     }
 
-    const infoEl = document.getElementById(`goalinfo-${slot}`);
-    infoEl.textContent = uniqueDates.length > 0
-      ? `📅 ${uniqueDates.length}일치 요일별 목표 합산`
-      : `📅 오늘(${DOW_KR[dow]}요일) 기준 목표`;
+    document.getElementById(`goalinfo-${slot}`).textContent =
+      `📅 ${bizDate} (${DOW_KR[dow]}요일) 기준 목표 · 06:00 리셋`;
   });
 }
 
@@ -575,7 +588,6 @@ setInterval(() => {
 }, 1000);
 
 // ── 날짜 헬퍼 ──
-function todayStr(){ return new Date().toISOString().slice(0,10); }
 function setText(id,v){ document.getElementById(id).textContent=v; }
 </script>
 </body>
