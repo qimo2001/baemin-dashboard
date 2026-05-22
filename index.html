@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DS 광주광산 배플 배달현황 대시보드</title>
+<title>DS 배민플러스 배달현황</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
@@ -46,11 +46,7 @@
   .error-banner{background:rgba(255,68,102,.1);border:1px solid rgba(255,68,102,.3);
     color:var(--reject);padding:12px 16px;border-radius:8px;margin-bottom:18px;font-size:13px;display:none}
 
-  .date-filter{display:flex;align-items:center;gap:10px;margin-bottom:24px;flex-wrap:wrap}
-  .date-filter label{font-size:13px;color:var(--text-muted)}
-  .date-input{background:var(--surface2);border:1px solid var(--border);color:var(--text);
-    padding:7px 12px;border-radius:6px;font-size:13px;font-family:'Noto Sans KR',sans-serif;outline:none}
-  .date-input:focus{border-color:var(--accent)}
+
 
   /* ── 핵심 지표 카드 ── */
   .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
@@ -181,17 +177,7 @@
 
   <div class="error-banner" id="errorBanner"></div>
 
-  <!-- 기간 필터 -->
-  <div class="date-filter">
-    <label>기간</label>
-    <input type="date" class="date-input" id="dateFrom" onchange="renderAll()">
-    <span style="color:var(--text-muted)">–</span>
-    <input type="date" class="date-input" id="dateTo" onchange="renderAll()">
-    <button class="btn btn-sm" onclick="resetDates()">전체</button>
-    <button class="btn btn-sm" onclick="setToday()">오늘</button>
-    <button class="btn btn-sm" onclick="setThisWeek()">이번주</button>
-    <button class="btn btn-sm" onclick="setThisMonth()">이번달</button>
-  </div>
+
 
   <!-- 핵심 지표 -->
   <div class="stats-grid">
@@ -402,9 +388,6 @@ let allRows = [];
 
 // ── 초기 로드 + 10초 자동 갱신 ──
 window.addEventListener('DOMContentLoaded', () => {
-  const today = todayStr();
-  document.getElementById('dateTo').value   = today;
-  document.getElementById('dateFrom').value = today.slice(0,8) + '01';
   loadData();
   setInterval(loadData, 10000);
 });
@@ -467,16 +450,9 @@ function toNum(v){ if(!v)return 0; const n=parseInt(v.toString().replace(/[^0-9\
 
 // ── 렌더링 전체 ──
 function renderAll() {
-  const from = document.getElementById('dateFrom').value;
-  const to   = document.getElementById('dateTo').value;
-  const filtered = allRows.filter(r => {
-    if(from && r.date < from) return false;
-    if(to   && r.date > to)   return false;
-    return true;
-  });
-  renderCards(filtered);
-  renderTimeCards(filtered, from, to);
-  renderTable(filtered);
+  renderCards(allRows);
+  renderTimeCards(allRows);
+  renderTable(allRows);
 }
 
 function sum(arr,k){ return arr.reduce((a,r)=>a+(r[k]||0),0); }
@@ -488,29 +464,21 @@ function renderCards(rows) {
   setText('valRider',    sum(rows,'rider'));
 }
 
-// ── 시간대 카드 렌더 ──
-function renderTimeCards(rows, from, to) {
+function renderTimeCards(rows) {
   const slots = ['morning','afternoon','evening','night'];
-
-  // 기간이 오늘 하루인지 확인 → 오늘이면 오늘 요일 목표, 아니면 기간 합산 목표
   const today = todayStr();
-  const isSingleDay = from === to && from !== '';
-  const refDate = isSingleDay ? from : today;
-  const goalForRef = getGoal(refDate);
-  const dow = new Date(refDate + 'T00:00:00').getDay();
+  const dow = new Date(today + 'T00:00:00').getDay();
+  const goalForToday = getGoal(today);
 
-  // 기간 합산일 때: 각 날짜 목표 합산
-  let goalTotals = { morning:0, afternoon:0, evening:0, night:0 };
-  if (!isSingleDay && rows.length > 0) {
-    // 필터된 날짜들의 고유 날짜별 목표 합산
-    const uniqueDates = [...new Set(rows.map(r=>r.date))];
-    uniqueDates.forEach(d => {
-      const g = getGoal(d);
-      slots.forEach(s => goalTotals[s] += g[s]);
-    });
-  } else {
-    slots.forEach(s => goalTotals[s] = goalForRef[s]);
-  }
+  // 기간 합산: 각 날짜 목표 합산
+  const uniqueDates = [...new Set(rows.map(r=>r.date))];
+  const goalTotals = { morning:0, afternoon:0, evening:0, night:0 };
+  uniqueDates.forEach(d => {
+    const g = getGoal(d);
+    slots.forEach(s => goalTotals[s] += g[s]);
+  });
+  // 데이터 없으면 오늘 목표
+  if (uniqueDates.length === 0) slots.forEach(s => goalTotals[s] = goalForToday[s]);
 
   slots.forEach(slot => {
     const actual = sum(rows, slot);
@@ -524,7 +492,6 @@ function renderTimeCards(rows, from, to) {
     setText(`pct-${slot}`,  `${pct}%`);
     document.getElementById(`fill-${slot}`).style.width = fillW + '%';
 
-    // 달성 뱃지
     const badge = document.getElementById(`badge-${slot}`);
     if (actual >= goal && goal > 0) {
       badge.textContent = `✓ 달성 (+${diff})`;
@@ -537,16 +504,10 @@ function renderTimeCards(rows, from, to) {
       badge.className = 'achieve-badge none';
     }
 
-    // 안내 텍스트
     const infoEl = document.getElementById(`goalinfo-${slot}`);
-    if (isSingleDay) {
-      infoEl.textContent = `📅 ${refDate} (${DOW_KR[dow]}요일) 기준 목표`;
-    } else if (rows.length > 0) {
-      const uniqueDates = [...new Set(rows.map(r=>r.date))];
-      infoEl.textContent = `📅 ${uniqueDates.length}일치 요일별 목표 합산`;
-    } else {
-      infoEl.textContent = `📅 오늘(${DOW_KR[dow]}요일) 기준 목표`;
-    }
+    infoEl.textContent = uniqueDates.length > 0
+      ? `📅 ${uniqueDates.length}일치 요일별 목표 합산`
+      : `📅 오늘(${DOW_KR[dow]}요일) 기준 목표`;
   });
 }
 
@@ -615,11 +576,6 @@ setInterval(() => {
 
 // ── 날짜 헬퍼 ──
 function todayStr(){ return new Date().toISOString().slice(0,10); }
-function offsetDate(base,days){ const d=new Date(base); d.setDate(d.getDate()+days); return d.toISOString().slice(0,10); }
-function resetDates(){ document.getElementById('dateFrom').value=''; document.getElementById('dateTo').value=''; renderAll(); }
-function setToday(){ const t=todayStr(); document.getElementById('dateFrom').value=t; document.getElementById('dateTo').value=t; renderAll(); }
-function setThisWeek(){ const t=todayStr(),day=new Date().getDay(); document.getElementById('dateFrom').value=offsetDate(t,-day); document.getElementById('dateTo').value=t; renderAll(); }
-function setThisMonth(){ const t=todayStr(); document.getElementById('dateFrom').value=t.slice(0,8)+'01'; document.getElementById('dateTo').value=t; renderAll(); }
 function setText(id,v){ document.getElementById(id).textContent=v; }
 </script>
 </body>
