@@ -47,7 +47,7 @@
     color:var(--reject);padding:12px 16px;border-radius:8px;margin-bottom:18px;font-size:13px;display:none}
 
   /* ── 핵심 지표 카드 ── */
-  .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
+  .stats-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:20px}
   .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;
     padding:22px;position:relative;overflow:hidden;transition:transform .2s}
   .stat-card:hover{transform:translateY(-2px)}
@@ -56,6 +56,7 @@
   .stat-card.reject::before{background:var(--reject)}
   .stat-card.cancel::before{background:var(--cancel)}
   .stat-card.rider::before{background:var(--rider)}
+  .stat-card.accept::before{background:#38bdf8}
   .stat-icon{position:absolute;top:18px;right:18px;font-size:26px;opacity:.15}
   .stat-label{font-size:11px;color:var(--text-muted);letter-spacing:.05em;text-transform:uppercase;margin-bottom:10px}
   .stat-value{font-family:'JetBrains Mono',monospace;font-size:44px;font-weight:700;line-height:1;margin-bottom:4px}
@@ -63,6 +64,7 @@
   .stat-card.reject   .stat-value{color:var(--reject)}
   .stat-card.cancel   .stat-value{color:var(--cancel)}
   .stat-card.rider    .stat-value{color:var(--rider)}
+  .stat-card.accept   .stat-value{color:#38bdf8;font-size:36px}
   .stat-sub{font-size:11px;color:var(--text-muted)}
 
   /* ── 시간대 카드 (목표 포함) ── */
@@ -140,8 +142,11 @@
   footer{text-align:center;padding:18px;color:var(--text-muted);font-size:11px;
     font-family:'JetBrains Mono',monospace;border-top:1px solid var(--border)}
 
+  @media(max-width:1100px){
+    .stats-grid{grid-template-columns:repeat(3,1fr)}
+  }
   @media(max-width:900px){
-    .stats-grid{grid-template-columns:repeat(2,1fr)}
+    .stats-grid{grid-template-columns:repeat(3,1fr)}
     .time-section{grid-template-columns:1fr 1fr}
   }
   @media(max-width:600px){
@@ -198,6 +203,12 @@
       <div class="stat-label">배달취소(라이더귀책)</div>
       <div class="stat-value" id="valRider">–</div>
       <div class="stat-sub">라이더 귀책 취소</div>
+    </div>
+    <div class="stat-card accept">
+      <div class="stat-icon">📊</div>
+      <div class="stat-label">금일 수락률</div>
+      <div class="stat-value" id="valAccept">–</div>
+      <div class="stat-sub" id="valAcceptSub">완료+취소 / 전체</div>
     </div>
   </div>
 
@@ -493,10 +504,20 @@ function renderAll() {
 function sum(arr,k){ return arr.reduce((a,r)=>a+(r[k]||0),0); }
 
 function renderCards(rows) {
-  setText('valComplete', sum(rows,'complete'));
-  setText('valReject',   sum(rows,'reject'));
-  setText('valCancel',   sum(rows,'cancel'));
-  setText('valRider',    sum(rows,'rider'));
+  const complete = sum(rows,'complete');
+  const reject   = sum(rows,'reject');
+  const cancel   = sum(rows,'cancel');
+  const rider    = sum(rows,'rider');
+  const totalCancel = cancel + rider;
+  const total    = complete + reject + totalCancel;
+  const acceptRate = total > 0 ? ((complete + totalCancel) / total * 100) : 0;
+
+  setText('valComplete', complete);
+  setText('valReject',   reject);
+  setText('valCancel',   cancel);
+  setText('valRider',    rider);
+  setText('valAccept',   acceptRate.toFixed(1) + '%');
+  setText('valAcceptSub', `(${complete + totalCancel} / ${total})`);
 }
 
 function renderTimeCards(rows, bizDate) {
