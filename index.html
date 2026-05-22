@@ -460,11 +460,24 @@ function getBusinessDate() {
 
 // 영업일 기준 오늘의 데이터 범위: bizDate 06:00 KST ~ 다음날 05:59 KST
 function isInBusinessDay(datetimeStr, bizDate) {
-  // datetimeStr: "YYYY-MM-DD HH:MM:SS" (KST 기준으로 저장된 값으로 가정)
+  // datetimeStr: "YYYY-MM-DD H:MM:SS" 또는 "YYYY-MM-DD HH:MM:SS" (KST)
+  // KST → UTC 변환: -9시간
+  const dt = parseKST(datetimeStr);
+  if (!dt) return false;
   const from = new Date(bizDate + 'T06:00:00+09:00');
   const to   = new Date(from.getTime() + 24 * 60 * 60 * 1000);
-  const dt   = new Date(datetimeStr.replace(' ', 'T') + '+09:00');
   return dt >= from && dt < to;
+}
+
+// KST 시간 문자열을 Date 객체로 안전하게 파싱
+function parseKST(str) {
+  if (!str) return null;
+  // "YYYY-MM-DD H:MM:SS" → 분리 후 직접 조립
+  const m = str.trim().match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{1,2}):(\d{2}):(\d{2})$/);
+  if (!m) return null;
+  const [, y, mo, d, h, mi, s] = m;
+  // UTC로 변환 (KST = UTC+9)
+  return new Date(Date.UTC(+y, +mo-1, +d, +h-9, +mi, +s));
 }
 
 // ── 렌더링 전체 ──
