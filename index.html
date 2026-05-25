@@ -116,6 +116,12 @@
     font-size:11px;color:var(--text-muted);display:flex;align-items:center;gap:6px}
 
   /* ── 테이블 ── */
+  /* 운행상태 뱃지 */
+  .status-running{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;
+    font-size:11px;font-weight:600;background:rgba(34,211,160,.12);color:var(--complete);border:1px solid rgba(34,211,160,.25)}
+  .status-stopped{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;
+    font-size:11px;font-weight:600;background:rgba(112,112,160,.1);color:var(--text-muted);border:1px solid rgba(112,112,160,.2)}
+
   .panel-title{font-size:12px;font-weight:700;color:var(--text-muted);
     letter-spacing:.1em;text-transform:uppercase;margin-bottom:0;display:flex;align-items:center;gap:8px}
   .table-section{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px}
@@ -163,6 +169,7 @@
     <div class="logo-area">
       <div class="logo-badge">🛵 배민플러스</div>
       <h1>DS 광주광산 배달현황 <span>대시보드</span></h1>
+
     </div>
     <div class="header-right">
       <span class="live-dot"></span>
@@ -363,12 +370,44 @@
     </div>
   </div>
 
-  <footer>배달현황 대시보드 · 표준광주광산A디스테이션디패스 · 관계자 외 무단사용 금지</footer>
+  <!-- 라이더별 현황 테이블 -->
+  <div class="table-section">
+    <div class="table-header">
+      <div class="panel-title" style="margin:0">👤 라이더별 현황</div>
+      <span style="font-size:12px;color:var(--text-muted)">총 <span id="totalRiders">–</span>명</span>
+    </div>
+    <div style="overflow-x:auto">
+      <table>
+        <thead>
+          <tr>
+            <th>이름</th>
+            <th>운행상태</th>
+            <th>휴대폰번호</th>
+            <th>완료</th>
+            <th>거절</th>
+            <th>배차취소</th>
+            <th>배달취소(귀책)</th>
+            <th>수락률</th>
+            <th>아침점심피크</th>
+            <th>오후논피크</th>
+            <th>저녁피크</th>
+            <th>심야논피크</th>
+          </tr>
+        </thead>
+        <tbody id="riderTable">
+          <tr><td colspan="12" style="text-align:center;color:var(--text-muted);padding:40px">불러오는 중...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+ <footer>배달현황 대시보드 · 표준광주광산A디스테이션디패스 · 관계자 외 무단사용 금지</footer>
 </div>
 
 <script>
-const SHEET_ID = '19DjVZlXQ0y-wWNLYlO44jh4eJhvHaGMsaa5eGMoqeqM';
-const CSV_URL  = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=0`;
+const SHEET_ID  = '19DjVZlXQ0y-wWNLYlO44jh4eJhvHaGMsaa5eGMoqeqM';
+const CSV_URL   = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=0`;
+const RIDER_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=1343105669`;
 
 // ── 요일별 목표량 (0=일, 1=월, 2=화, 3=수, 4=목, 5=금, 6=토) ──
 const GOALS = {
@@ -389,7 +428,8 @@ function getGoal(dateStr) {
   return GOALS[d.getUTCDay()];
 }
 
-let allRows = [];
+let allRows   = [];
+let riderRows = [];
 
 // ── 초기 로드 + 10초 자동 갱신 ──
 window.addEventListener('DOMContentLoaded', () => {
@@ -403,10 +443,14 @@ async function loadData() {
   btn.classList.add('loading'); btn.textContent = '⟳ 로딩중...';
   document.getElementById('errorBanner').style.display = 'none';
   try {
-    const res = await fetch(CSV_URL);
+    const [res, riderRes] = await Promise.all([
+      fetch(CSV_URL),
+      fetch(RIDER_URL)
+    ]);
     if (!res.ok) throw new Error(`HTTP ${res.status} — 시트 공개 설정을 확인하세요.`);
-    const csv = await res.text();
-    allRows = parseCSV(csv);
+    const [csv, riderCsv] = await Promise.all([res.text(), riderRes.text()]);
+    allRows   = parseCSV(csv);
+    riderRows = parseRiderCSV(riderCsv);
     document.getElementById('lastUpdated').textContent = new Date().toLocaleTimeString('ko-KR');
     renderAll();
   } catch(e) {
@@ -498,7 +542,8 @@ function renderAll() {
 
   renderCards(todayRows);
   renderTimeCards(todayRows, bizDate);
-  renderTable(allRows); // 테이블은 전체 데이터 표시
+  renderTable(allRows);
+  renderRiderTable(riderRows);
 }
 
 function sum(arr,k){ return arr.reduce((a,r)=>a+(r[k]||0),0); }
@@ -604,6 +649,104 @@ function renderTable(rows) {
         <td class="num-cell num-cancel">${r.cancel}</td>
         <td class="num-cell num-rider">${r.rider}</td>
         ${slotKeys.map(s=>goalCell(r[s], g[s])).join('')}
+      </tr>`;
+    }).join('')}
+  `;
+}
+
+// ── 라이더 CSV 파싱 ──
+// 헤더: 갱신시간, 이름, 운행상태, 휴대폰번호, 완료, 거절, 배차취소, 배달취소(라이더귀책), 아침점심피크, 오후논피크, 저녁피크, 심야논피크
+function parseRiderCSV(csv) {
+  const lines = csv.trim().split('\n');
+  if (lines.length < 2) return [];
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = splitCSVLine(lines[i]);
+    if (!cols[1]) continue;
+    rows.push({
+      datetime:  cols[0]?.replace(/"/g,'').trim(),
+      name:      cols[1]?.replace(/"/g,'').trim(),
+      status:    cols[2]?.replace(/"/g,'').trim(),
+      phone:     cols[3]?.replace(/"/g,'').trim(),
+      complete:  toNum(cols[4]),
+      reject:    toNum(cols[5]),
+      cancel:    toNum(cols[6]),
+      rider:     toNum(cols[7]),
+      morning:   toNum(cols[8]),
+      afternoon: toNum(cols[9]),
+      evening:   toNum(cols[10]),
+      night:     toNum(cols[11]),
+    });
+  }
+  return rows;
+}
+
+// ── 라이더 테이블 렌더 ──
+function renderRiderTable(rows) {
+  document.getElementById('totalRiders').textContent = rows.length;
+  const tbody = document.getElementById('riderTable');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;color:var(--text-muted);padding:32px">데이터 없음</td></tr>';
+    return;
+  }
+
+  // 합계행
+  const keys = ['complete','reject','cancel','rider','morning','afternoon','evening','night'];
+  const totals = {};
+  keys.forEach(k => totals[k] = rows.reduce((a,r)=>a+(r[k]||0),0));
+  const totalCancel = totals.cancel + totals.rider;
+  const totalAll = totals.complete + totals.reject + totalCancel;
+  const totalRate = totalAll > 0 ? ((totals.complete + totalCancel) / totalAll * 100).toFixed(1) : '–';
+
+  const colorMap = {
+    complete:'num-complete', reject:'num-reject', cancel:'num-cancel', rider:'num-rider',
+    morning:'num-morning', afternoon:'num-afternoon', evening:'num-evening', night:'num-night'
+  };
+
+  // 운행중 먼저, 그 다음 완료순 정렬
+  const sorted = [...rows].sort((a,b) => {
+    const aRun = (a.status === '운행중' || a.status === '운행 중') ? 0 : 1;
+    const bRun = (b.status === '운행중' || b.status === '운행 중') ? 0 : 1;
+    if (aRun !== bRun) return aRun - bRun;
+    return b.complete - a.complete;
+  });
+
+  tbody.innerHTML = `
+    <tr style="background:rgba(255,205,0,.05);font-weight:700;">
+      <td style="color:var(--accent);font-family:'JetBrains Mono',monospace;font-size:12px">합계 (${rows.length}명)</td>
+      <td>–</td>
+      <td style="color:var(--text-muted);font-size:12px">–</td>
+      <td class="num-cell num-complete">${totals.complete}</td>
+      <td class="num-cell num-reject">${totals.reject}</td>
+      <td class="num-cell num-cancel">${totals.cancel}</td>
+      <td class="num-cell num-rider">${totals.rider}</td>
+      <td class="num-cell" style="color:#38bdf8">${totalRate}%</td>
+      <td class="num-cell num-morning">${totals.morning}</td>
+      <td class="num-cell num-afternoon">${totals.afternoon}</td>
+      <td class="num-cell num-evening">${totals.evening}</td>
+      <td class="num-cell num-night">${totals.night}</td>
+    </tr>
+    ${sorted.map(r => {
+      const isRunning = r.status === '운행중' || r.status === '운행 중';
+      const statusBadge = isRunning
+        ? `<span class="status-running">● 운행중</span>`
+        : `<span class="status-stopped">○ 종료</span>`;
+      const tc = r.cancel + r.rider;
+      const tot = r.complete + r.reject + tc;
+      const rate = tot > 0 ? ((r.complete + tc) / tot * 100).toFixed(1) + '%' : '–';
+      return `<tr>
+        <td style="font-weight:600">${r.name}</td>
+        <td>${statusBadge}</td>
+        <td style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-muted)">${r.phone}</td>
+        <td class="num-cell num-complete">${r.complete}</td>
+        <td class="num-cell num-reject">${r.reject}</td>
+        <td class="num-cell num-cancel">${r.cancel}</td>
+        <td class="num-cell num-rider">${r.rider}</td>
+        <td class="num-cell" style="color:#38bdf8">${rate}</td>
+        <td class="num-cell num-morning">${r.morning}</td>
+        <td class="num-cell num-afternoon">${r.afternoon}</td>
+        <td class="num-cell num-evening">${r.evening}</td>
+        <td class="num-cell num-night">${r.night}</td>
       </tr>`;
     }).join('')}
   `;
