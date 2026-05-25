@@ -169,7 +169,6 @@
     <div class="logo-area">
       <div class="logo-badge">🛵 배민플러스</div>
       <h1>DS 광주광산 배달현황 <span>대시보드</span></h1>
-
     </div>
     <div class="header-right">
       <span class="live-dot"></span>
@@ -342,34 +341,6 @@
     </div>
   </div>
 
-  <!-- 날짜별 테이블 -->
-  <div class="table-section">
-    <div class="table-header">
-      <div class="panel-title" style="margin:0">📋 날짜별 상세 (목표 달성 현황)</div>
-      <span style="font-size:12px;color:var(--text-muted)">총 <span id="totalRows">–</span>건</span>
-    </div>
-    <div style="overflow-x:auto">
-      <table>
-        <thead>
-          <tr>
-            <th>갱신시간</th>
-            <th>완료</th>
-            <th>거절</th>
-            <th>배차취소</th>
-            <th>귀책취소</th>
-            <th>아침점심 / 목표</th>
-            <th>오후논피크 / 목표</th>
-            <th>저녁피크 / 목표</th>
-            <th>심야 / 목표</th>
-          </tr>
-        </thead>
-        <tbody id="dataTable">
-          <tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:40px">불러오는 중...</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-
   <!-- 라이더별 현황 테이블 -->
   <div class="table-section">
     <div class="table-header">
@@ -406,7 +377,6 @@
 
 <script>
 const SHEET_ID  = '19DjVZlXQ0y-wWNLYlO44jh4eJhvHaGMsaa5eGMoqeqM';
-const CSV_URL   = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=0`;
 const RIDER_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=1343105669`;
 
 // ── 요일별 목표량 (0=일, 1=월, 2=화, 3=수, 4=목, 5=금, 6=토) ──
@@ -428,7 +398,6 @@ function getGoal(dateStr) {
   return GOALS[d.getUTCDay()];
 }
 
-let allRows   = [];
 let riderRows = [];
 
 // ── 초기 로드 + 10초 자동 갱신 ──
@@ -443,14 +412,10 @@ async function loadData() {
   btn.classList.add('loading'); btn.textContent = '⟳ 로딩중...';
   document.getElementById('errorBanner').style.display = 'none';
   try {
-    const [res, riderRes] = await Promise.all([
-      fetch(CSV_URL),
-      fetch(RIDER_URL)
-    ]);
+    const res = await fetch(RIDER_URL);
     if (!res.ok) throw new Error(`HTTP ${res.status} — 시트 공개 설정을 확인하세요.`);
-    const [csv, riderCsv] = await Promise.all([res.text(), riderRes.text()]);
-    allRows   = parseCSV(csv);
-    riderRows = parseRiderCSV(riderCsv);
+    const csv = await res.text();
+    riderRows = parseRiderCSV(csv);
     document.getElementById('lastUpdated').textContent = new Date().toLocaleTimeString('ko-KR');
     renderAll();
   } catch(e) {
@@ -461,31 +426,6 @@ async function loadData() {
   }
 }
 
-// ── CSV 파싱 ──
-function parseCSV(csv) {
-  const lines = csv.trim().split('\n');
-  if (lines.length < 2) return [];
-  const rows = [];
-  for (let i = 1; i < lines.length; i++) {
-    const cols = splitCSVLine(lines[i]);
-    if (!cols[0]) continue;
-    const raw = cols[0].replace(/"/g,'').trim();
-    if (!raw) continue;
-    const date = raw.slice(0,10);
-    rows.push({
-      date, datetime: raw,
-      complete:  toNum(cols[1]),
-      reject:    toNum(cols[2]),
-      cancel:    toNum(cols[3]),
-      rider:     toNum(cols[4]),
-      morning:   toNum(cols[5]),
-      afternoon: toNum(cols[6]),
-      evening:   toNum(cols[7]),
-      night:     toNum(cols[8]),
-    });
-  }
-  return rows.sort((a,b) => a.datetime.localeCompare(b.datetime));
-}
 function splitCSVLine(line) {
   const r=[]; let cur=''; let q=false;
   for(const c of line){
@@ -538,11 +478,15 @@ function parseKST(str) {
 // ── 렌더링 전체 ──
 function renderAll() {
   const bizDate = getBusinessDate();
-  const todayRows = allRows.filter(r => isInBusinessDay(r.datetime, bizDate));
+  // 라이더 시트의 가장 최신 갱신시간 기준으로 오늘 데이터 판별
+  // 라이더별 시트는 매번 전체를 덮어쓰는 구조이므로 최신 행 전체를 사용
+  const latestDatetime = riderRows.length > 0 ? riderRows[0].datetime : '';
+  const todayRiders = latestDatetime && isInBusinessDay(latestDatetime, bizDate)
+    ? riderRows
+    : riderRows; // 항상 전체 사용 (라이더 시트는 현재 스냅샷)
 
-  renderCards(todayRows);
-  renderTimeCards(todayRows, bizDate);
-  renderTable(allRows);
+  renderCards(todayRiders);
+  renderTimeCards(todayRiders, bizDate);
   renderRiderTable(riderRows);
 }
 
@@ -597,61 +541,6 @@ function renderTimeCards(rows, bizDate) {
     document.getElementById(`goalinfo-${slot}`).textContent =
       `📅 ${bizDate} (${DOW_KR[dow]}요일) 기준 목표 · 06:00 리셋`;
   });
-}
-
-// ── 테이블 ──
-function renderTable(rows) {
-  document.getElementById('totalRows').textContent = rows.length;
-  const tbody = document.getElementById('dataTable');
-  if(!rows.length){
-    tbody.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:32px">해당 기간 데이터 없음</td></tr>';
-    return;
-  }
-
-  const slotKeys = ['morning','afternoon','evening','night'];
-  const slotColors = {morning:'num-morning',afternoon:'num-afternoon',evening:'num-evening',night:'num-night'};
-
-  // 합계행
-  const totals = {};
-  ['complete','reject','cancel','rider',...slotKeys].forEach(k => totals[k]=sum(rows,k));
-
-  // 합계 목표: 각 날짜 목표 합산
-  const uniqueDates = [...new Set(rows.map(r=>r.date))];
-  const goalTotals = {morning:0,afternoon:0,evening:0,night:0};
-  uniqueDates.forEach(d => {
-    const g = getGoal(d);
-    slotKeys.forEach(s => goalTotals[s] += g[s]);
-  });
-
-  function goalCell(actual, goal) {
-    const diff = actual - goal;
-    const cls  = actual >= goal ? 'hit' : 'miss';
-    const sign = diff >= 0 ? '+' : '';
-    return `<td class="goal-cell ${cls}">${actual}<span style="opacity:.6"> / ${goal}</span><br><span style="font-size:10px">${sign}${diff}</span></td>`;
-  }
-
-  tbody.innerHTML = `
-    <tr style="background:rgba(255,205,0,.05);font-weight:700;">
-      <td class="td-date" style="color:var(--accent)">합계 (${rows.length}건)</td>
-      <td class="num-cell num-complete">${totals.complete}</td>
-      <td class="num-cell num-reject">${totals.reject}</td>
-      <td class="num-cell num-cancel">${totals.cancel}</td>
-      <td class="num-cell num-rider">${totals.rider}</td>
-      ${slotKeys.map(s=>goalCell(totals[s], goalTotals[s])).join('')}
-    </tr>
-    ${[...rows].reverse().map(r => {
-      const g = getGoal(r.date);
-      const dow = DOW_KR[new Date(r.date+'T12:00:00+09:00').getUTCDay()];
-      return `<tr>
-        <td class="td-date">${r.datetime}<br><span style="font-size:10px;color:var(--text-muted)">${dow}요일</span></td>
-        <td class="num-cell num-complete">${r.complete}</td>
-        <td class="num-cell num-reject">${r.reject}</td>
-        <td class="num-cell num-cancel">${r.cancel}</td>
-        <td class="num-cell num-rider">${r.rider}</td>
-        ${slotKeys.map(s=>goalCell(r[s], g[s])).join('')}
-      </tr>`;
-    }).join('')}
-  `;
 }
 
 // ── 라이더 CSV 파싱 ──
