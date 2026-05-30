@@ -43,7 +43,6 @@
   .btn-sm{font-size:11px;padding:5px 10px}
   .btn.loading{opacity:.5;cursor:not-allowed}
 
-  .error-banner{background:rgba(255,68,102,.1);border:1px solid rgba(255,68,102,.3);
     color:var(--reject);padding:12px 16px;border-radius:8px;margin-bottom:18px;font-size:13px;display:none}
 
   /* ── 핵심 지표 카드 ── */
@@ -164,11 +163,13 @@
 </style>
 </head>
 <body>
+
+
 <div class="wrapper">
   <header>
     <div class="logo-area">
-      <div class="logo-badge">🛵 배민플러스</div>
-      <h1>DS 광주광산 배달현황 <span>대시보드</span></h1>
+      <div class="logo-badge">🛵 BAEMIN</div>
+      <h1>배달현황 <span>대시보드</span></h1>
     </div>
     <div class="header-right">
       <span class="live-dot"></span>
@@ -226,7 +227,7 @@
         <div class="time-color-bar"></div>
         <div class="time-card-title">
           <div class="time-card-name">아침점심피크</div>
-          <div class="time-card-hours">06시 – 13시</div>
+          <div class="time-card-hours" id="hours-morning">06시 – 13시</div>
         </div>
         <div class="achieve-badge none" id="badge-morning">–</div>
       </div>
@@ -256,7 +257,7 @@
         <div class="time-color-bar"></div>
         <div class="time-card-title">
           <div class="time-card-name">오후논피크</div>
-          <div class="time-card-hours">13시 – 17시</div>
+          <div class="time-card-hours" id="hours-afternoon">13시 – 17시</div>
         </div>
         <div class="achieve-badge none" id="badge-afternoon">–</div>
       </div>
@@ -286,7 +287,7 @@
         <div class="time-color-bar"></div>
         <div class="time-card-title">
           <div class="time-card-name">저녁피크</div>
-          <div class="time-card-hours">17시 – 22시</div>
+          <div class="time-card-hours">17시 – 20시</div>
         </div>
         <div class="achieve-badge none" id="badge-evening">–</div>
       </div>
@@ -316,7 +317,7 @@
         <div class="time-color-bar"></div>
         <div class="time-card-title">
           <div class="time-card-name">심야논피크</div>
-          <div class="time-card-hours">22시 – 06시</div>
+          <div class="time-card-hours">20시 – 03시</div>
         </div>
         <div class="achieve-badge none" id="badge-night">–</div>
       </div>
@@ -372,8 +373,8 @@
     </div>
   </div>
 
- <footer>배달현황 대시보드 · 표준광주광산A디스테이션디패스 · 관계자 외 무단사용 금지</footer>
-</div>
+  <footer>배달현황 대시보드 · 표준광주광산A디스테이션디패스 · 구글 스프레드시트 연동</footer>
+</div><!-- /.wrapper -->
 
 <script>
 const SHEET_ID  = '19DjVZlXQ0y-wWNLYlO44jh4eJhvHaGMsaa5eGMoqeqM';
@@ -513,6 +514,11 @@ function renderTimeCards(rows, bizDate) {
   const slots = ['morning','afternoon','evening','night'];
   const goal = getGoal(bizDate);
   const dow = new Date(bizDate + 'T12:00:00+09:00').getUTCDay();
+  const isWeekend = dow === 0 || dow === 6;
+
+  // 요일별 시간 표시 업데이트
+  document.getElementById('hours-morning').textContent   = isWeekend ? '06시 – 14시' : '06시 – 13시';
+  document.getElementById('hours-afternoon').textContent = isWeekend ? '14시 – 17시' : '13시 – 17시';
 
   slots.forEach(slot => {
     const actual = sum(rows, slot);
