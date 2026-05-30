@@ -47,8 +47,6 @@
 
   /* ── 핵심 지표 카드 ── */
   .stats-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:20px}
-  .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;
-    padding:22px;position:relative;overflow:hidden;transition:transform .2s}
   .stat-card:hover{transform:translateY(-2px)}
   .stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
   .stat-card.complete::before{background:var(--complete)}
@@ -57,7 +55,7 @@
   .stat-card.rider::before{background:var(--rider)}
   .stat-card.accept::before{background:#38bdf8}
   .stat-icon{position:absolute;top:18px;right:18px;font-size:26px;opacity:.15}
-  .stat-label{font-size:11px;color:var(--text-muted);letter-spacing:.05em;text-transform:uppercase;margin-bottom:10px}
+  .stat-label{font-size:10px;color:var(--text-muted);letter-spacing:.03em;text-transform:uppercase;margin-bottom:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .stat-value{font-family:'JetBrains Mono',monospace;font-size:44px;font-weight:700;line-height:1;margin-bottom:4px}
   .stat-card.complete .stat-value{color:var(--complete)}
   .stat-card.reject   .stat-value{color:var(--reject)}
@@ -148,16 +146,22 @@
     font-family:'JetBrains Mono',monospace;border-top:1px solid var(--border)}
 
   @media(max-width:1100px){
-    .stats-grid{grid-template-columns:repeat(3,1fr)}
+    .stats-grid{grid-template-columns:repeat(5,1fr)}
+    .stat-value{font-size:34px}
+    .stat-card{padding:16px}
   }
   @media(max-width:900px){
-    .stats-grid{grid-template-columns:repeat(3,1fr)}
+    .stats-grid{grid-template-columns:repeat(5,1fr)}
+    .stat-value{font-size:28px}
+    .stat-card{padding:14px}
     .time-section{grid-template-columns:1fr 1fr}
   }
   @media(max-width:600px){
-    .stats-grid{grid-template-columns:1fr 1fr}
+    .stats-grid{grid-template-columns:repeat(5,1fr)}
+    .stat-value{font-size:20px}
+    .stat-card{padding:10px}
+    .stat-icon{display:none}
     .time-section{grid-template-columns:1fr}
-    .stat-value{font-size:34px}
     .time-actual{font-size:32px}
   }
 </style>
