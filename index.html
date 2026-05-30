@@ -227,7 +227,7 @@ font-family:'JetBrains Mono',monospace;border-top:1px solid var(--border)}
 <div class="time-color-bar"></div>
 <div class="time-card-title">
 <div class="time-card-name">아침점심피크</div>
-<div class="time-card-hours">06시 – 13시</div>
+<div class="time-card-hours">06:00 – 12:59</div>
 </div>
 <div class="achieve-badge none" id="badge-morning">–</div>
 </div>
@@ -257,7 +257,7 @@ font-family:'JetBrains Mono',monospace;border-top:1px solid var(--border)}
 <div class="time-color-bar"></div>
 <div class="time-card-title">
 <div class="time-card-name">오후논피크</div>
-<div class="time-card-hours">13시 – 17시</div>
+<div class="time-card-hours" id="hours-afternoon">13:00 – 16:59</div>
 </div>
 <div class="achieve-badge none" id="badge-afternoon">–</div>
 </div>
@@ -287,7 +287,7 @@ font-family:'JetBrains Mono',monospace;border-top:1px solid var(--border)}
 <div class="time-color-bar"></div>
 <div class="time-card-title">
 <div class="time-card-name">저녁피크</div>
-<div class="time-card-hours">17시 – 22시</div>
+<div class="time-card-hours">17:00 – 19:59</div>
 </div>
 <div class="achieve-badge none" id="badge-evening">–</div>
 </div>
@@ -317,7 +317,7 @@ font-family:'JetBrains Mono',monospace;border-top:1px solid var(--border)}
 <div class="time-color-bar"></div>
 <div class="time-card-title">
 <div class="time-card-name">심야논피크</div>
-<div class="time-card-hours">22시 – 06시</div>
+<div class="time-card-hours">20:00 – 03:00</div>
 </div>
 <div class="achieve-badge none" id="badge-night">–</div>
 </div>
@@ -341,34 +341,6 @@ font-family:'JetBrains Mono',monospace;border-top:1px solid var(--border)}
 <div class="goal-info" id="goalinfo-night">📅 오늘 목표를 불러오는 중...</div>
 </div>
 </div>
-
-  <!-- 날짜별 테이블 -->
-  <div class="table-section">
-    <div class="table-header">
-      <div class="panel-title" style="margin:0">📋 날짜별 상세 (목표 달성 현황)</div>
-      <span style="font-size:12px;color:var(--text-muted)">총 <span id="totalRows">–</span>건</span>
-    </div>
-    <div style="overflow-x:auto">
-      <table>
-        <thead>
-          <tr>
-            <th>갱신시간</th>
-            <th>완료</th>
-            <th>거절</th>
-            <th>배차취소</th>
-            <th>귀책취소</th>
-            <th>아침점심 / 목표</th>
-            <th>오후논피크 / 목표</th>
-            <th>저녁피크 / 목표</th>
-            <th>심야 / 목표</th>
-          </tr>
-        </thead>
-        <tbody id="dataTable">
-          <tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:40px">불러오는 중...</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
 
 <!-- 라이더별 현황 테이블 -->
 <div class="table-section">
@@ -538,22 +510,11 @@ return new Date(Date.UTC(+y, +mo-1, +d, +h-9, +mi, +s));
 
 // ── 렌더링 전체 ──
 function renderAll() {
-const bizDate = getBusinessDate();
-  const todayRows = allRows.filter(r => isInBusinessDay(r.datetime, bizDate));
-
-  renderCards(todayRows);
-  renderTimeCards(todayRows, bizDate);
-  renderTable(allRows);
-  // 라이더 시트의 가장 최신 갱신시간 기준으로 오늘 데이터 판별
-  // 라이더별 시트는 매번 전체를 덮어쓰는 구조이므로 최신 행 전체를 사용
-  const latestDatetime = riderRows.length > 0 ? riderRows[0].datetime : '';
-  const todayRiders = latestDatetime && isInBusinessDay(latestDatetime, bizDate)
-    ? riderRows
-    : riderRows; // 항상 전체 사용 (라이더 시트는 현재 스냅샷)
-
-  renderCards(todayRiders);
-  renderTimeCards(todayRiders, bizDate);
-renderRiderTable(riderRows);
+  const bizDate = getBusinessDate();
+  // 상단 카드/시간대: 라이더별 시트 전체 합산 (스냅샷 구조)
+  renderCards(riderRows);
+  renderTimeCards(riderRows, bizDate);
+  renderRiderTable(riderRows);
 }
 
 function sum(arr,k){ return arr.reduce((a,r)=>a+(r[k]||0),0); }
@@ -579,6 +540,12 @@ function renderTimeCards(rows, bizDate) {
 const slots = ['morning','afternoon','evening','night'];
 const goal = getGoal(bizDate);
 const dow = new Date(bizDate + 'T12:00:00+09:00').getUTCDay();
+
+// 오후논피크 시간 표시: 주말(0=일, 6=토)은 14:00~16:59, 평일은 13:00~16:59
+const isWeekend = (dow === 0 || dow === 6);
+const afternoonHours = isWeekend ? '14:00 – 16:59' : '13:00 – 16:59';
+const hoursEl = document.getElementById('hours-afternoon');
+if (hoursEl) hoursEl.textContent = afternoonHours;
 
 slots.forEach(slot => {
 const actual = sum(rows, slot);
@@ -607,61 +574,6 @@ badge.className = 'achieve-badge none';
 document.getElementById(`goalinfo-${slot}`).textContent =
 `📅 ${bizDate} (${DOW_KR[dow]}요일) 기준 목표 · 06:00 리셋`;
 });
-}
-
-// ── 테이블 ──
-function renderTable(rows) {
-  document.getElementById('totalRows').textContent = rows.length;
-  const tbody = document.getElementById('dataTable');
-  if(!rows.length){
-    tbody.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:32px">해당 기간 데이터 없음</td></tr>';
-    return;
-  }
-
-  const slotKeys = ['morning','afternoon','evening','night'];
-  const slotColors = {morning:'num-morning',afternoon:'num-afternoon',evening:'num-evening',night:'num-night'};
-
-  // 합계행
-  const totals = {};
-  ['complete','reject','cancel','rider',...slotKeys].forEach(k => totals[k]=sum(rows,k));
-
-  // 합계 목표: 각 날짜 목표 합산
-  const uniqueDates = [...new Set(rows.map(r=>r.date))];
-  const goalTotals = {morning:0,afternoon:0,evening:0,night:0};
-  uniqueDates.forEach(d => {
-    const g = getGoal(d);
-    slotKeys.forEach(s => goalTotals[s] += g[s]);
-  });
-
-  function goalCell(actual, goal) {
-    const diff = actual - goal;
-    const cls  = actual >= goal ? 'hit' : 'miss';
-    const sign = diff >= 0 ? '+' : '';
-    return `<td class="goal-cell ${cls}">${actual}<span style="opacity:.6"> / ${goal}</span><br><span style="font-size:10px">${sign}${diff}</span></td>`;
-  }
-
-  tbody.innerHTML = `
-    <tr style="background:rgba(255,205,0,.05);font-weight:700;">
-      <td class="td-date" style="color:var(--accent)">합계 (${rows.length}건)</td>
-      <td class="num-cell num-complete">${totals.complete}</td>
-      <td class="num-cell num-reject">${totals.reject}</td>
-      <td class="num-cell num-cancel">${totals.cancel}</td>
-      <td class="num-cell num-rider">${totals.rider}</td>
-      ${slotKeys.map(s=>goalCell(totals[s], goalTotals[s])).join('')}
-    </tr>
-    ${[...rows].reverse().map(r => {
-      const g = getGoal(r.date);
-      const dow = DOW_KR[new Date(r.date+'T12:00:00+09:00').getUTCDay()];
-      return `<tr>
-        <td class="td-date">${r.datetime}<br><span style="font-size:10px;color:var(--text-muted)">${dow}요일</span></td>
-        <td class="num-cell num-complete">${r.complete}</td>
-        <td class="num-cell num-reject">${r.reject}</td>
-        <td class="num-cell num-cancel">${r.cancel}</td>
-        <td class="num-cell num-rider">${r.rider}</td>
-        ${slotKeys.map(s=>goalCell(r[s], g[s])).join('')}
-      </tr>`;
-    }).join('')}
-  `;
 }
 
 // ── 라이더 CSV 파싱 ──
