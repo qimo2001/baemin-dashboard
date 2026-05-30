@@ -447,14 +447,12 @@ try {
       fetch(CSV_URL),
       fetch(RIDER_URL)
     ]);
-    const res = await fetch(RIDER_URL);
-if (!res.ok) throw new Error(`HTTP ${res.status} — 시트 공개 설정을 확인하세요.`);
+    if (!res.ok) throw new Error(`HTTP ${res.status} — 시트 공개 설정을 확인하세요.`);
+    if (!riderRes.ok) throw new Error(`라이더 시트 오류: HTTP ${riderRes.status}`);
     const [csv, riderCsv] = await Promise.all([res.text(), riderRes.text()]);
     allRows   = parseCSV(csv);
     riderRows = parseRiderCSV(riderCsv);
-    const csv = await res.text();
-    riderRows = parseRiderCSV(csv);
-document.getElementById('lastUpdated').textContent = new Date().toLocaleTimeString('ko-KR');
+    document.getElementById('lastUpdated').textContent = new Date().toLocaleTimeString('ko-KR');
 renderAll();
 } catch(e) {
 const el = document.getElementById('errorBanner');
