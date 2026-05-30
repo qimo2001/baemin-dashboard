@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DS 배민플러스 배달현황</title>
+<title>DS 배밀플러스 배달현황 대시보드</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
@@ -46,7 +46,7 @@
     color:var(--reject);padding:12px 16px;border-radius:8px;margin-bottom:18px;font-size:13px;display:none}
 
   /* ── 핵심 지표 카드 ── */
-  .stats-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:20px}
+  .stats-grid{display:grid !important;grid-template-columns:repeat(5,1fr) !important;gap:14px;margin-bottom:20px}
   .stat-card:hover{transform:translateY(-2px)}
   .stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
   .stat-card.complete::before{background:var(--complete)}
@@ -146,19 +146,19 @@
     font-family:'JetBrains Mono',monospace;border-top:1px solid var(--border)}
 
   @media(max-width:1100px){
-    .stats-grid{grid-template-columns:repeat(5,1fr)}
+    .stats-grid{grid-template-columns:repeat(5,1fr) !important}
     .stat-value{font-size:34px}
     .stat-card{padding:16px}
   }
   @media(max-width:900px){
-    .stats-grid{grid-template-columns:repeat(5,1fr)}
+    .stats-grid{grid-template-columns:repeat(5,1fr) !important}
     .stat-value{font-size:28px}
     .stat-card{padding:14px}
     .time-section{grid-template-columns:1fr 1fr}
   }
   @media(max-width:600px){
-    .stats-grid{grid-template-columns:repeat(5,1fr)}
-    .stat-value{font-size:20px}
+    .stats-grid{grid-template-columns:repeat(5,1fr) !important}
+    .stat-value{font-size:18px}
     .stat-card{padding:10px}
     .stat-icon{display:none}
     .time-section{grid-template-columns:1fr}
