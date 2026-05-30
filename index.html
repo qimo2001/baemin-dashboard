@@ -3,655 +3,773 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>배달현황 대시보드</title>
+<title>DS 배민플러스 배달현황</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --bg:#0a0a0f; --surface:#13131a; --surface2:#1c1c28;
-    --border:#2a2a3d; --accent:#ffcd00;
-    --text:#f0f0ff; --text-muted:#7070a0;
-    --complete:#22d3a0; --reject:#ff4466;
-    --cancel:#ff8c42; --rider:#c44dff;
-    --morning:#ffb84d; --afternoon:#4db8ff;
-    --evening:#ff6b6b; --night:#a78bfa;
-    --hit:#22d3a0; --miss:#ff4466;
-  }
-  *{margin:0;padding:0;box-sizing:border-box}
-  body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-serif;min-height:100vh}
-  body::before{content:'';position:fixed;inset:0;
-    background-image:linear-gradient(rgba(255,205,0,.03) 1px,transparent 1px),
-    linear-gradient(90deg,rgba(255,205,0,.03) 1px,transparent 1px);
-    background-size:40px 40px;pointer-events:none;z-index:0}
-  .wrapper{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:24px}
+:root {
+--bg:#0a0a0f; --surface:#13131a; --surface2:#1c1c28;
+--border:#2a2a3d; --accent:#ffcd00;
+--text:#f0f0ff; --text-muted:#7070a0;
+--complete:#22d3a0; --reject:#ff4466;
+--cancel:#ff8c42; --rider:#c44dff;
+--morning:#ffb84d; --afternoon:#4db8ff;
+--evening:#ff6b6b; --night:#a78bfa;
+--hit:#22d3a0; --miss:#ff4466;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-serif;min-height:100vh}
+body::before{content:'';position:fixed;inset:0;
+background-image:linear-gradient(rgba(255,205,0,.03) 1px,transparent 1px),
+linear-gradient(90deg,rgba(255,205,0,.03) 1px,transparent 1px);
+background-size:40px 40px;pointer-events:none;z-index:0}
+.wrapper{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:24px}
 
-  header{display:flex;align-items:center;justify-content:space-between;
-    margin-bottom:28px;padding-bottom:20px;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:12px}
-  .logo-area{display:flex;align-items:center;gap:12px}
-  .logo-badge{background:var(--accent);color:#000;font-size:11px;font-weight:900;
-    letter-spacing:.08em;padding:6px 12px;border-radius:4px}
-  h1{font-size:20px;font-weight:700}
-  h1 span{color:var(--text-muted);font-weight:300}
-  .header-right{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-  .live-dot{width:8px;height:8px;border-radius:50%;background:var(--complete);animation:pulse 2s infinite}
-  @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.8)}}
-  .last-updated{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-muted)}
-  .btn{background:var(--surface2);border:1px solid var(--border);color:var(--text);
-    padding:8px 14px;border-radius:6px;cursor:pointer;font-size:13px;
-    font-family:'Noto Sans KR',sans-serif;transition:all .2s}
-  .btn:hover{border-color:var(--accent);color:var(--accent)}
-  .btn-sm{font-size:11px;padding:5px 10px}
-  .btn.loading{opacity:.5;cursor:not-allowed}
+header{display:flex;align-items:center;justify-content:space-between;
+margin-bottom:28px;padding-bottom:20px;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:12px}
+.logo-area{display:flex;align-items:center;gap:12px}
+.logo-badge{background:var(--accent);color:#000;font-size:11px;font-weight:900;
+letter-spacing:.08em;padding:6px 12px;border-radius:4px}
+h1{font-size:20px;font-weight:700}
+h1 span{color:var(--text-muted);font-weight:300}
+.header-right{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.live-dot{width:8px;height:8px;border-radius:50%;background:var(--complete);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.8)}}
+.last-updated{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-muted)}
+.btn{background:var(--surface2);border:1px solid var(--border);color:var(--text);
+padding:8px 14px;border-radius:6px;cursor:pointer;font-size:13px;
+font-family:'Noto Sans KR',sans-serif;transition:all .2s}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn-sm{font-size:11px;padding:5px 10px}
+.btn.loading{opacity:.5;cursor:not-allowed}
 
-    color:var(--reject);padding:12px 16px;border-radius:8px;margin-bottom:18px;font-size:13px;display:none}
+.error-banner{background:rgba(255,68,102,.1);border:1px solid rgba(255,68,102,.3);
+color:var(--reject);padding:12px 16px;border-radius:8px;margin-bottom:18px;font-size:13px;display:none}
 
-  /* ── 핵심 지표 카드 ── */
-  .stats-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:20px}
-  .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;
-    padding:18px;position:relative;overflow:hidden;transition:transform .2s}
-  .stat-card:hover{transform:translateY(-2px)}
-  .stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
-  .stat-card.complete::before{background:var(--complete)}
-  .stat-card.reject::before{background:var(--reject)}
-  .stat-card.cancel::before{background:var(--cancel)}
-  .stat-card.rider::before{background:var(--rider)}
-  .stat-card.accept::before{background:#38bdf8}
-  .stat-icon{position:absolute;top:16px;right:16px;font-size:22px;opacity:.15}
-  .stat-label{font-size:10px;color:var(--text-muted);letter-spacing:.03em;text-transform:uppercase;margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .stat-value{font-family:'JetBrains Mono',monospace;font-size:38px;font-weight:700;line-height:1;margin-bottom:4px}
-  .stat-card.complete .stat-value{color:var(--complete)}
-  .stat-card.reject   .stat-value{color:var(--reject)}
-  .stat-card.cancel   .stat-value{color:var(--cancel)}
-  .stat-card.rider    .stat-value{color:var(--rider)}
-  .stat-card.accept   .stat-value{color:#38bdf8;font-size:30px}
-  .stat-sub{font-size:11px;color:var(--text-muted)}
+/* ── 핵심 지표 카드 ── */
+.stats-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:20px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;
+padding:22px;position:relative;overflow:hidden;transition:transform .2s}
+.stat-card:hover{transform:translateY(-2px)}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.stat-card.complete::before{background:var(--complete)}
+.stat-card.reject::before{background:var(--reject)}
+.stat-card.cancel::before{background:var(--cancel)}
+.stat-card.rider::before{background:var(--rider)}
+.stat-card.accept::before{background:#38bdf8}
+.stat-icon{position:absolute;top:18px;right:18px;font-size:26px;opacity:.15}
+.stat-label{font-size:11px;color:var(--text-muted);letter-spacing:.05em;text-transform:uppercase;margin-bottom:10px}
+.stat-value{font-family:'JetBrains Mono',monospace;font-size:44px;font-weight:700;line-height:1;margin-bottom:4px}
+.stat-card.complete .stat-value{color:var(--complete)}
+.stat-card.reject   .stat-value{color:var(--reject)}
+.stat-card.cancel   .stat-value{color:var(--cancel)}
+.stat-card.rider    .stat-value{color:var(--rider)}
+.stat-card.accept   .stat-value{color:#38bdf8;font-size:36px}
+.stat-sub{font-size:11px;color:var(--text-muted)}
 
-  /* ── 시간대 카드 (목표 포함) ── */
-  .time-section{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:20px}
-  .time-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:22px;transition:transform .2s}
-  .time-card:hover{transform:translateY(-2px)}
-  .time-card-header{display:flex;align-items:center;gap:10px;margin-bottom:16px}
-  .time-color-bar{width:4px;height:36px;border-radius:2px;flex-shrink:0}
-  .time-card.morning   .time-color-bar{background:var(--morning)}
-  .time-card.afternoon .time-color-bar{background:var(--afternoon)}
-  .time-card.evening   .time-color-bar{background:var(--evening)}
-  .time-card.night     .time-color-bar{background:var(--night)}
-  .time-card-title{flex:1}
-  .time-card-name{font-size:13px;font-weight:700;margin-bottom:2px}
-  .time-card-hours{font-size:11px;color:var(--text-muted)}
+/* ── 시간대 카드 (목표 포함) ── */
+.time-section{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:20px}
+.time-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:22px;transition:transform .2s}
+.time-card:hover{transform:translateY(-2px)}
+.time-card-header{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.time-color-bar{width:4px;height:36px;border-radius:2px;flex-shrink:0}
+.time-card.morning   .time-color-bar{background:var(--morning)}
+.time-card.afternoon .time-color-bar{background:var(--afternoon)}
+.time-card.evening   .time-color-bar{background:var(--evening)}
+.time-card.night     .time-color-bar{background:var(--night)}
+.time-card-title{flex:1}
+.time-card-name{font-size:13px;font-weight:700;margin-bottom:2px}
+.time-card-hours{font-size:11px;color:var(--text-muted)}
 
-  /* 달성/미달 뱃지 */
-  .achieve-badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;white-space:nowrap}
-  .achieve-badge.hit {background:rgba(34,211,160,.15);color:var(--hit);border:1px solid rgba(34,211,160,.3)}
-  .achieve-badge.miss{background:rgba(255,68,102,.12);color:var(--miss);border:1px solid rgba(255,68,102,.25)}
-  .achieve-badge.none{background:var(--surface2);color:var(--text-muted);border:1px solid var(--border)}
+/* 달성/미달 뱃지 */
+.achieve-badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;white-space:nowrap}
+.achieve-badge.hit {background:rgba(34,211,160,.15);color:var(--hit);border:1px solid rgba(34,211,160,.3)}
+.achieve-badge.miss{background:rgba(255,68,102,.12);color:var(--miss);border:1px solid rgba(255,68,102,.25)}
+.achieve-badge.none{background:var(--surface2);color:var(--text-muted);border:1px solid var(--border)}
 
-  /* 수치 행 */
-  .time-nums{display:flex;align-items:flex-end;gap:6px;margin-bottom:14px}
-  .time-actual{font-family:'JetBrains Mono',monospace;font-size:42px;font-weight:700;line-height:1}
-  .time-card.morning   .time-actual{color:var(--morning)}
-  .time-card.afternoon .time-actual{color:var(--afternoon)}
-  .time-card.evening   .time-actual{color:var(--evening)}
-  .time-card.night     .time-actual{color:var(--night)}
-  .time-unit{font-size:13px;color:var(--text-muted);margin-bottom:6px}
-  .time-sep{font-size:18px;color:var(--border);margin-bottom:6px}
-  .time-goal-wrap{margin-bottom:6px}
-  .time-goal-label{font-size:10px;color:var(--text-muted)}
-  .time-goal-val{font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700;color:var(--text-muted)}
+/* 수치 행 */
+.time-nums{display:flex;align-items:flex-end;gap:6px;margin-bottom:14px}
+.time-actual{font-family:'JetBrains Mono',monospace;font-size:42px;font-weight:700;line-height:1}
+.time-card.morning   .time-actual{color:var(--morning)}
+.time-card.afternoon .time-actual{color:var(--afternoon)}
+.time-card.evening   .time-actual{color:var(--evening)}
+.time-card.night     .time-actual{color:var(--night)}
+.time-unit{font-size:13px;color:var(--text-muted);margin-bottom:6px}
+.time-sep{font-size:18px;color:var(--border);margin-bottom:6px}
+.time-goal-wrap{margin-bottom:6px}
+.time-goal-label{font-size:10px;color:var(--text-muted)}
+.time-goal-val{font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700;color:var(--text-muted)}
 
-  /* 진행 바 */
-  .time-progress-wrap{position:relative}
-  .time-progress-bg{height:6px;background:var(--border);border-radius:3px;overflow:visible;position:relative}
-  .time-progress-fill{height:100%;border-radius:3px;transition:width .8s cubic-bezier(.4,0,.2,1);position:relative}
-  .time-card.morning   .time-progress-fill{background:var(--morning)}
-  .time-card.afternoon .time-progress-fill{background:var(--afternoon)}
-  .time-card.evening   .time-progress-fill{background:var(--evening)}
-  .time-card.night     .time-progress-fill{background:var(--night)}
-  .goal-line{position:absolute;top:-4px;width:2px;height:14px;background:#fff;border-radius:1px;opacity:.5}
-  .time-progress-pct{font-size:11px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;margin-top:6px;text-align:right}
+/* 진행 바 */
+.time-progress-wrap{position:relative}
+.time-progress-bg{height:6px;background:var(--border);border-radius:3px;overflow:visible;position:relative}
+.time-progress-fill{height:100%;border-radius:3px;transition:width .8s cubic-bezier(.4,0,.2,1);position:relative}
+.time-card.morning   .time-progress-fill{background:var(--morning)}
+.time-card.afternoon .time-progress-fill{background:var(--afternoon)}
+.time-card.evening   .time-progress-fill{background:var(--evening)}
+.time-card.night     .time-progress-fill{background:var(--night)}
+.goal-line{position:absolute;top:-4px;width:2px;height:14px;background:#fff;border-radius:1px;opacity:.5}
+.time-progress-pct{font-size:11px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;margin-top:6px;text-align:right}
 
-  /* 요일 목표 안내 */
-  .goal-info{background:var(--surface2);border-radius:6px;padding:8px 12px;margin-top:12px;
-    font-size:11px;color:var(--text-muted);display:flex;align-items:center;gap:6px}
+/* 요일 목표 안내 */
+.goal-info{background:var(--surface2);border-radius:6px;padding:8px 12px;margin-top:12px;
+font-size:11px;color:var(--text-muted);display:flex;align-items:center;gap:6px}
 
-  /* ── 테이블 ── */
-  /* 운행상태 뱃지 */
-  .status-running{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;
-    font-size:11px;font-weight:600;background:rgba(34,211,160,.12);color:var(--complete);border:1px solid rgba(34,211,160,.25)}
-  .status-stopped{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;
-    font-size:11px;font-weight:600;background:rgba(112,112,160,.1);color:var(--text-muted);border:1px solid rgba(112,112,160,.2)}
+/* ── 테이블 ── */
+/* 운행상태 뱃지 */
+.status-running{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;
+font-size:11px;font-weight:600;background:rgba(34,211,160,.12);color:var(--complete);border:1px solid rgba(34,211,160,.25)}
+.status-stopped{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;
+font-size:11px;font-weight:600;background:rgba(112,112,160,.1);color:var(--text-muted);border:1px solid rgba(112,112,160,.2)}
 
-  .panel-title{font-size:12px;font-weight:700;color:var(--text-muted);
-    letter-spacing:.1em;text-transform:uppercase;margin-bottom:0;display:flex;align-items:center;gap:8px}
-  .table-section{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px}
-  .table-header{padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
-  table{width:100%;border-collapse:collapse}
-  thead th{padding:11px 16px;text-align:left;font-size:10px;font-weight:600;color:var(--text-muted);
-    letter-spacing:.08em;text-transform:uppercase;background:var(--surface2);border-bottom:1px solid var(--border)}
-  tbody tr{border-bottom:1px solid rgba(42,42,61,.5);transition:background .15s}
-  tbody tr:hover{background:var(--surface2)}
-  tbody tr:last-child{border-bottom:none}
-  td{padding:12px 16px;font-size:13px}
-  .num-cell{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700}
-  .num-complete{color:var(--complete)} .num-reject{color:var(--reject)}
-  .num-cancel{color:var(--cancel)}     .num-rider{color:var(--rider)}
-  .num-morning{color:var(--morning)}   .num-afternoon{color:var(--afternoon)}
-  .num-evening{color:var(--evening)}   .num-night{color:var(--night)}
-  .td-date{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-muted)}
+.panel-title{font-size:12px;font-weight:700;color:var(--text-muted);
+letter-spacing:.1em;text-transform:uppercase;margin-bottom:0;display:flex;align-items:center;gap:8px}
+.table-section{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px}
+.table-header{padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+table{width:100%;border-collapse:collapse}
+thead th{padding:11px 16px;text-align:left;font-size:10px;font-weight:600;color:var(--text-muted);
+letter-spacing:.08em;text-transform:uppercase;background:var(--surface2);border-bottom:1px solid var(--border)}
+tbody tr{border-bottom:1px solid rgba(42,42,61,.5);transition:background .15s}
+tbody tr:hover{background:var(--surface2)}
+tbody tr:last-child{border-bottom:none}
+td{padding:12px 16px;font-size:13px}
+.num-cell{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700}
+.num-complete{color:var(--complete)} .num-reject{color:var(--reject)}
+.num-cancel{color:var(--cancel)}     .num-rider{color:var(--rider)}
+.num-morning{color:var(--morning)}   .num-afternoon{color:var(--afternoon)}
+.num-evening{color:var(--evening)}   .num-night{color:var(--night)}
+.td-date{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-muted)}
 
-  /* 목표 대비 셀 */
-  .goal-cell{font-size:11px;color:var(--text-muted);font-family:'JetBrains Mono',monospace}
-  .goal-cell.hit {color:var(--hit)}
-  .goal-cell.miss{color:var(--miss)}
+/* 목표 대비 셀 */
+.goal-cell{font-size:11px;color:var(--text-muted);font-family:'JetBrains Mono',monospace}
+.goal-cell.hit {color:var(--hit)}
+.goal-cell.miss{color:var(--miss)}
 
-  footer{text-align:center;padding:18px;color:var(--text-muted);font-size:11px;
-    font-family:'JetBrains Mono',monospace;border-top:1px solid var(--border)}
+footer{text-align:center;padding:18px;color:var(--text-muted);font-size:11px;
+font-family:'JetBrains Mono',monospace;border-top:1px solid var(--border)}
 
-  @media(max-width:1200px){
-    .stat-value{font-size:30px}
-    .stat-card.accept .stat-value{font-size:24px}
-  }
-  @media(max-width:900px){
-    .time-section{grid-template-columns:1fr 1fr}
-  }
-  @media(max-width:600px){
-    .stats-grid{grid-template-columns:repeat(5,1fr)}
-    .stat-value{font-size:18px}
-    .stat-card.accept .stat-value{font-size:14px}
-    .stat-card{padding:8px}
-    .stat-icon{display:none}
-    .stat-sub{display:none}
-    .time-section{grid-template-columns:1fr}
-    .time-actual{font-size:32px}
-  }
+@media(max-width:1100px){
+.stats-grid{grid-template-columns:repeat(3,1fr)}
+}
+@media(max-width:900px){
+.stats-grid{grid-template-columns:repeat(3,1fr)}
+.time-section{grid-template-columns:1fr 1fr}
+}
+@media(max-width:600px){
+.stats-grid{grid-template-columns:1fr 1fr}
+.time-section{grid-template-columns:1fr}
+.stat-value{font-size:34px}
+.time-actual{font-size:32px}
+}
 </style>
 </head>
 <body>
-
-
 <div class="wrapper">
-  <header>
-    <div class="logo-area">
-      <div class="logo-badge">🛵 BAEMIN</div>
-      <h1>배달현황 <span>대시보드</span></h1>
-    </div>
-    <div class="header-right">
-      <span class="live-dot"></span>
-      <span class="last-updated" id="lastUpdated">불러오는 중...</span>
-      <span id="countdownBadge" style="font-family:'JetBrains Mono',monospace;font-size:11px;
-        background:rgba(34,211,160,.12);border:1px solid rgba(34,211,160,.25);color:var(--complete);
-        padding:4px 10px;border-radius:20px;">10s</span>
-      <button class="btn" id="refreshBtn" onclick="loadData()">↻ 새로고침</button>
-    </div>
-  </header>
+<header>
+<div class="logo-area">
+<div class="logo-badge">🛵 배민플러스</div>
+<h1>DS 광주광산 배달현황 <span>대시보드</span></h1>
 
-  <div class="error-banner" id="errorBanner"></div>
+</div>
+<div class="header-right">
+<span class="live-dot"></span>
+<span class="last-updated" id="lastUpdated">불러오는 중...</span>
+<span id="countdownBadge" style="font-family:'JetBrains Mono',monospace;font-size:11px;
+       background:rgba(34,211,160,.12);border:1px solid rgba(34,211,160,.25);color:var(--complete);
+       padding:4px 10px;border-radius:20px;">10s</span>
+<button class="btn" id="refreshBtn" onclick="loadData()">↻ 새로고침</button>
+</div>
+</header>
+
+<div class="error-banner" id="errorBanner"></div>
 
 
 
-  <!-- 핵심 지표 -->
-  <div class="stats-grid">
-    <div class="stat-card complete">
-      <div class="stat-icon">✅</div>
-      <div class="stat-label">완료</div>
-      <div class="stat-value" id="valComplete">–</div>
-      <div class="stat-sub">배달 완료 건수</div>
-    </div>
-    <div class="stat-card reject">
-      <div class="stat-icon">🚫</div>
-      <div class="stat-label">거절</div>
-      <div class="stat-value" id="valReject">–</div>
-      <div class="stat-sub">라이더 거절 건수</div>
-    </div>
-    <div class="stat-card cancel">
-      <div class="stat-icon">❌</div>
-      <div class="stat-label">배차취소</div>
-      <div class="stat-value" id="valCancel">–</div>
-      <div class="stat-sub">배차 취소 건수</div>
-    </div>
-    <div class="stat-card rider">
-      <div class="stat-icon">⚠️</div>
-      <div class="stat-label">배달취소(라이더귀책)</div>
-      <div class="stat-value" id="valRider">–</div>
-      <div class="stat-sub">라이더 귀책 취소</div>
-    </div>
-    <div class="stat-card accept">
-      <div class="stat-icon">📊</div>
-      <div class="stat-label">금일 수락률</div>
-      <div class="stat-value" id="valAccept">–</div>
-      <div class="stat-sub" id="valAcceptSub">완료+취소 / 전체</div>
-    </div>
-  </div>
+<!-- 핵심 지표 -->
+<div class="stats-grid">
+<div class="stat-card complete">
+<div class="stat-icon">✅</div>
+<div class="stat-label">완료</div>
+<div class="stat-value" id="valComplete">–</div>
+<div class="stat-sub">배달 완료 건수</div>
+</div>
+<div class="stat-card reject">
+<div class="stat-icon">🚫</div>
+<div class="stat-label">거절</div>
+<div class="stat-value" id="valReject">–</div>
+<div class="stat-sub">라이더 거절 건수</div>
+</div>
+<div class="stat-card cancel">
+<div class="stat-icon">❌</div>
+<div class="stat-label">배차취소</div>
+<div class="stat-value" id="valCancel">–</div>
+<div class="stat-sub">배차 취소 건수</div>
+</div>
+<div class="stat-card rider">
+<div class="stat-icon">⚠️</div>
+<div class="stat-label">배달취소(라이더귀책)</div>
+<div class="stat-value" id="valRider">–</div>
+<div class="stat-sub">라이더 귀책 취소</div>
+</div>
+<div class="stat-card accept">
+<div class="stat-icon">📊</div>
+<div class="stat-label">금일 수락률</div>
+<div class="stat-value" id="valAccept">–</div>
+<div class="stat-sub" id="valAcceptSub">완료+취소 / 전체</div>
+</div>
+</div>
 
-  <!-- 시간대별 목표 카드 4개 -->
-  <div class="time-section">
-    <!-- 아침점심피크 -->
-    <div class="time-card morning">
-      <div class="time-card-header">
-        <div class="time-color-bar"></div>
-        <div class="time-card-title">
-          <div class="time-card-name">아침점심피크</div>
-          <div class="time-card-hours" id="hours-morning">06시 – 13시</div>
-        </div>
-        <div class="achieve-badge none" id="badge-morning">–</div>
-      </div>
-      <div class="time-nums">
-        <div class="time-actual" id="val-morning">–</div>
-        <div class="time-unit">건</div>
-        <div class="time-sep">/</div>
-        <div class="time-goal-wrap">
-          <div class="time-goal-label">목표</div>
-          <div class="time-goal-val" id="goal-morning">–</div>
-        </div>
-        <div class="time-unit">건</div>
-      </div>
-      <div class="time-progress-wrap">
-        <div class="time-progress-bg">
-          <div class="time-progress-fill" id="fill-morning" style="width:0%"></div>
-          <div class="goal-line" style="left:100%"></div>
-        </div>
-        <div class="time-progress-pct" id="pct-morning">0%</div>
-      </div>
-      <div class="goal-info" id="goalinfo-morning">📅 오늘 목표를 불러오는 중...</div>
-    </div>
+<!-- 시간대별 목표 카드 4개 -->
+<div class="time-section">
+<!-- 아침점심피크 -->
+<div class="time-card morning">
+<div class="time-card-header">
+<div class="time-color-bar"></div>
+<div class="time-card-title">
+<div class="time-card-name">아침점심피크</div>
+<div class="time-card-hours">06시 – 13시</div>
+</div>
+<div class="achieve-badge none" id="badge-morning">–</div>
+</div>
+<div class="time-nums">
+<div class="time-actual" id="val-morning">–</div>
+<div class="time-unit">건</div>
+<div class="time-sep">/</div>
+<div class="time-goal-wrap">
+<div class="time-goal-label">목표</div>
+<div class="time-goal-val" id="goal-morning">–</div>
+</div>
+<div class="time-unit">건</div>
+</div>
+<div class="time-progress-wrap">
+<div class="time-progress-bg">
+<div class="time-progress-fill" id="fill-morning" style="width:0%"></div>
+<div class="goal-line" style="left:100%"></div>
+</div>
+<div class="time-progress-pct" id="pct-morning">0%</div>
+</div>
+<div class="goal-info" id="goalinfo-morning">📅 오늘 목표를 불러오는 중...</div>
+</div>
 
-    <!-- 오후논피크 -->
-    <div class="time-card afternoon">
-      <div class="time-card-header">
-        <div class="time-color-bar"></div>
-        <div class="time-card-title">
-          <div class="time-card-name">오후논피크</div>
-          <div class="time-card-hours" id="hours-afternoon">13시 – 17시</div>
-        </div>
-        <div class="achieve-badge none" id="badge-afternoon">–</div>
-      </div>
-      <div class="time-nums">
-        <div class="time-actual" id="val-afternoon">–</div>
-        <div class="time-unit">건</div>
-        <div class="time-sep">/</div>
-        <div class="time-goal-wrap">
-          <div class="time-goal-label">목표</div>
-          <div class="time-goal-val" id="goal-afternoon">–</div>
-        </div>
-        <div class="time-unit">건</div>
-      </div>
-      <div class="time-progress-wrap">
-        <div class="time-progress-bg">
-          <div class="time-progress-fill" id="fill-afternoon" style="width:0%"></div>
-          <div class="goal-line" style="left:100%"></div>
-        </div>
-        <div class="time-progress-pct" id="pct-afternoon">0%</div>
-      </div>
-      <div class="goal-info" id="goalinfo-afternoon">📅 오늘 목표를 불러오는 중...</div>
-    </div>
+<!-- 오후논피크 -->
+<div class="time-card afternoon">
+<div class="time-card-header">
+<div class="time-color-bar"></div>
+<div class="time-card-title">
+<div class="time-card-name">오후논피크</div>
+<div class="time-card-hours">13시 – 17시</div>
+</div>
+<div class="achieve-badge none" id="badge-afternoon">–</div>
+</div>
+<div class="time-nums">
+<div class="time-actual" id="val-afternoon">–</div>
+<div class="time-unit">건</div>
+<div class="time-sep">/</div>
+<div class="time-goal-wrap">
+<div class="time-goal-label">목표</div>
+<div class="time-goal-val" id="goal-afternoon">–</div>
+</div>
+<div class="time-unit">건</div>
+</div>
+<div class="time-progress-wrap">
+<div class="time-progress-bg">
+<div class="time-progress-fill" id="fill-afternoon" style="width:0%"></div>
+<div class="goal-line" style="left:100%"></div>
+</div>
+<div class="time-progress-pct" id="pct-afternoon">0%</div>
+</div>
+<div class="goal-info" id="goalinfo-afternoon">📅 오늘 목표를 불러오는 중...</div>
+</div>
 
-    <!-- 저녁피크 -->
-    <div class="time-card evening">
-      <div class="time-card-header">
-        <div class="time-color-bar"></div>
-        <div class="time-card-title">
-          <div class="time-card-name">저녁피크</div>
-          <div class="time-card-hours">17시 – 22시</div>
-        </div>
-        <div class="achieve-badge none" id="badge-evening">–</div>
-      </div>
-      <div class="time-nums">
-        <div class="time-actual" id="val-evening">–</div>
-        <div class="time-unit">건</div>
-        <div class="time-sep">/</div>
-        <div class="time-goal-wrap">
-          <div class="time-goal-label">목표</div>
-          <div class="time-goal-val" id="goal-evening">–</div>
-        </div>
-        <div class="time-unit">건</div>
-      </div>
-      <div class="time-progress-wrap">
-        <div class="time-progress-bg">
-          <div class="time-progress-fill" id="fill-evening" style="width:0%"></div>
-          <div class="goal-line" style="left:100%"></div>
-        </div>
-        <div class="time-progress-pct" id="pct-evening">0%</div>
-      </div>
-      <div class="goal-info" id="goalinfo-evening">📅 오늘 목표를 불러오는 중...</div>
-    </div>
+<!-- 저녁피크 -->
+<div class="time-card evening">
+<div class="time-card-header">
+<div class="time-color-bar"></div>
+<div class="time-card-title">
+<div class="time-card-name">저녁피크</div>
+<div class="time-card-hours">17시 – 22시</div>
+</div>
+<div class="achieve-badge none" id="badge-evening">–</div>
+</div>
+<div class="time-nums">
+<div class="time-actual" id="val-evening">–</div>
+<div class="time-unit">건</div>
+<div class="time-sep">/</div>
+<div class="time-goal-wrap">
+<div class="time-goal-label">목표</div>
+<div class="time-goal-val" id="goal-evening">–</div>
+</div>
+<div class="time-unit">건</div>
+</div>
+<div class="time-progress-wrap">
+<div class="time-progress-bg">
+<div class="time-progress-fill" id="fill-evening" style="width:0%"></div>
+<div class="goal-line" style="left:100%"></div>
+</div>
+<div class="time-progress-pct" id="pct-evening">0%</div>
+</div>
+<div class="goal-info" id="goalinfo-evening">📅 오늘 목표를 불러오는 중...</div>
+</div>
 
-    <!-- 심야논피크 -->
-    <div class="time-card night">
-      <div class="time-card-header">
-        <div class="time-color-bar"></div>
-        <div class="time-card-title">
-          <div class="time-card-name">심야논피크</div>
-          <div class="time-card-hours">22시 – 06시</div>
-        </div>
-        <div class="achieve-badge none" id="badge-night">–</div>
-      </div>
-      <div class="time-nums">
-        <div class="time-actual" id="val-night">–</div>
-        <div class="time-unit">건</div>
-        <div class="time-sep">/</div>
-        <div class="time-goal-wrap">
-          <div class="time-goal-label">목표</div>
-          <div class="time-goal-val" id="goal-night">–</div>
-        </div>
-        <div class="time-unit">건</div>
-      </div>
-      <div class="time-progress-wrap">
-        <div class="time-progress-bg">
-          <div class="time-progress-fill" id="fill-night" style="width:0%"></div>
-          <div class="goal-line" style="left:100%"></div>
-        </div>
-        <div class="time-progress-pct" id="pct-night">0%</div>
-      </div>
-      <div class="goal-info" id="goalinfo-night">📅 오늘 목표를 불러오는 중...</div>
-    </div>
-  </div>
+<!-- 심야논피크 -->
+<div class="time-card night">
+<div class="time-card-header">
+<div class="time-color-bar"></div>
+<div class="time-card-title">
+<div class="time-card-name">심야논피크</div>
+<div class="time-card-hours">22시 – 06시</div>
+</div>
+<div class="achieve-badge none" id="badge-night">–</div>
+</div>
+<div class="time-nums">
+<div class="time-actual" id="val-night">–</div>
+<div class="time-unit">건</div>
+<div class="time-sep">/</div>
+<div class="time-goal-wrap">
+<div class="time-goal-label">목표</div>
+<div class="time-goal-val" id="goal-night">–</div>
+</div>
+<div class="time-unit">건</div>
+</div>
+<div class="time-progress-wrap">
+<div class="time-progress-bg">
+<div class="time-progress-fill" id="fill-night" style="width:0%"></div>
+<div class="goal-line" style="left:100%"></div>
+</div>
+<div class="time-progress-pct" id="pct-night">0%</div>
+</div>
+<div class="goal-info" id="goalinfo-night">📅 오늘 목표를 불러오는 중...</div>
+</div>
+</div>
 
-  <!-- 라이더별 현황 테이블 -->
+  <!-- 날짜별 테이블 -->
   <div class="table-section">
     <div class="table-header">
-      <div class="panel-title" style="margin:0">👤 라이더별 현황</div>
-      <span style="font-size:12px;color:var(--text-muted)">총 <span id="totalRiders">–</span>명</span>
+      <div class="panel-title" style="margin:0">📋 날짜별 상세 (목표 달성 현황)</div>
+      <span style="font-size:12px;color:var(--text-muted)">총 <span id="totalRows">–</span>건</span>
     </div>
     <div style="overflow-x:auto">
       <table>
         <thead>
           <tr>
-            <th>이름</th>
-            <th>운행상태</th>
-            <th>휴대폰번호</th>
+            <th>갱신시간</th>
             <th>완료</th>
             <th>거절</th>
             <th>배차취소</th>
-            <th>배달취소(귀책)</th>
-            <th>수락률</th>
-            <th>아침점심피크</th>
-            <th>오후논피크</th>
-            <th>저녁피크</th>
-            <th>심야논피크</th>
+            <th>귀책취소</th>
+            <th>아침점심 / 목표</th>
+            <th>오후논피크 / 목표</th>
+            <th>저녁피크 / 목표</th>
+            <th>심야 / 목표</th>
           </tr>
         </thead>
-        <tbody id="riderTable">
-          <tr><td colspan="12" style="text-align:center;color:var(--text-muted);padding:40px">불러오는 중...</td></tr>
+        <tbody id="dataTable">
+          <tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:40px">불러오는 중...</td></tr>
         </tbody>
       </table>
     </div>
   </div>
 
-  <footer>배달현황 대시보드 · 표준광주광산A디스테이션디패스 · 구글 스프레드시트 연동</footer>
-</div><!-- /.wrapper -->
+<!-- 라이더별 현황 테이블 -->
+<div class="table-section">
+<div class="table-header">
+<div class="panel-title" style="margin:0">👤 라이더별 현황</div>
+<span style="font-size:12px;color:var(--text-muted)">총 <span id="totalRiders">–</span>명</span>
+</div>
+<div style="overflow-x:auto">
+<table>
+<thead>
+<tr>
+<th>이름</th>
+<th>운행상태</th>
+<th>휴대폰번호</th>
+<th>완료</th>
+<th>거절</th>
+<th>배차취소</th>
+<th>배달취소(귀책)</th>
+<th>수락률</th>
+<th>아침점심피크</th>
+<th>오후논피크</th>
+<th>저녁피크</th>
+<th>심야논피크</th>
+</tr>
+</thead>
+<tbody id="riderTable">
+<tr><td colspan="12" style="text-align:center;color:var(--text-muted);padding:40px">불러오는 중...</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+
+<footer>배달현황 대시보드 · 표준광주광산A디스테이션디패스 · 관계자 외 무단사용 금지</footer>
+</div>
 
 <script>
 const SHEET_ID  = '19DjVZlXQ0y-wWNLYlO44jh4eJhvHaGMsaa5eGMoqeqM';
+const CSV_URL   = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=0`;
 const RIDER_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=1343105669`;
 
 // ── 요일별 목표량 (0=일, 1=월, 2=화, 3=수, 4=목, 5=금, 6=토) ──
 const GOALS = {
-  0: { morning:33, afternoon:22, evening:35, night:30 }, // 일
-  1: { morning:21, afternoon:20, evening:30, night:29 }, // 월
-  2: { morning:21, afternoon:20, evening:30, night:29 }, // 화
-  3: { morning:21, afternoon:20, evening:30, night:29 }, // 수
-  4: { morning:21, afternoon:20, evening:30, night:29 }, // 목
-  5: { morning:24, afternoon:21, evening:32, night:33 }, // 금
-  6: { morning:31, afternoon:22, evening:36, night:31 }, // 토
+0: { morning:33, afternoon:22, evening:35, night:30 }, // 일
+1: { morning:21, afternoon:20, evening:30, night:29 }, // 월
+2: { morning:21, afternoon:20, evening:30, night:29 }, // 화
+3: { morning:21, afternoon:20, evening:30, night:29 }, // 수
+4: { morning:21, afternoon:20, evening:30, night:29 }, // 목
+5: { morning:24, afternoon:21, evening:32, night:33 }, // 금
+6: { morning:31, afternoon:22, evening:36, night:31 }, // 토
 };
 
 const DOW_KR = ['일','월','화','수','목','금','토'];
 
 function getGoal(dateStr) {
-  // dateStr: "YYYY-MM-DD" — KST 기준 날짜
-  const d = new Date(dateStr + 'T12:00:00+09:00'); // 정오로 고정해 DST 오차 방지
-  return GOALS[d.getUTCDay()];
+// dateStr: "YYYY-MM-DD" — KST 기준 날짜
+const d = new Date(dateStr + 'T12:00:00+09:00'); // 정오로 고정해 DST 오차 방지
+return GOALS[d.getUTCDay()];
 }
 
+let allRows   = [];
 let riderRows = [];
 
 // ── 초기 로드 + 10초 자동 갱신 ──
 window.addEventListener('DOMContentLoaded', () => {
-  loadData();
-  setInterval(loadData, 10000);
+loadData();
+setInterval(loadData, 10000);
 });
 
 // ── 데이터 로드 ──
 async function loadData() {
-  const btn = document.getElementById('refreshBtn');
-  btn.classList.add('loading'); btn.textContent = '⟳ 로딩중...';
-  document.getElementById('errorBanner').style.display = 'none';
-  try {
+const btn = document.getElementById('refreshBtn');
+btn.classList.add('loading'); btn.textContent = '⟳ 로딩중...';
+document.getElementById('errorBanner').style.display = 'none';
+try {
+    const [res, riderRes] = await Promise.all([
+      fetch(CSV_URL),
+      fetch(RIDER_URL)
+    ]);
     const res = await fetch(RIDER_URL);
-    if (!res.ok) throw new Error(`HTTP ${res.status} — 시트 공개 설정을 확인하세요.`);
+if (!res.ok) throw new Error(`HTTP ${res.status} — 시트 공개 설정을 확인하세요.`);
+    const [csv, riderCsv] = await Promise.all([res.text(), riderRes.text()]);
+    allRows   = parseCSV(csv);
+    riderRows = parseRiderCSV(riderCsv);
     const csv = await res.text();
     riderRows = parseRiderCSV(csv);
-    document.getElementById('lastUpdated').textContent = new Date().toLocaleTimeString('ko-KR');
-    renderAll();
-  } catch(e) {
-    const el = document.getElementById('errorBanner');
-    el.textContent = `⚠ ${e.message}`; el.style.display = 'block';
-  } finally {
-    btn.classList.remove('loading'); btn.textContent = '↻ 새로고침';
-  }
+document.getElementById('lastUpdated').textContent = new Date().toLocaleTimeString('ko-KR');
+renderAll();
+} catch(e) {
+const el = document.getElementById('errorBanner');
+el.textContent = `⚠ ${e.message}`; el.style.display = 'block';
+} finally {
+btn.classList.remove('loading'); btn.textContent = '↻ 새로고침';
+}
 }
 
-function splitCSVLine(line) {
-  const r=[]; let cur=''; let q=false;
-  for(const c of line){
-    if(c==='"'){q=!q;continue}
-    if(c===','&&!q){r.push(cur);cur='';continue}
-    cur+=c;
-  }
-  r.push(cur); return r;
-}
-function toNum(v){ if(!v)return 0; const n=parseInt(v.toString().replace(/[^0-9\-]/g,''),10); return isNaN(n)?0:n; }
-
-// ── KST 기준 현재 시각 ──
-function nowKST() {
-  // KST = UTC+9
-  const now = new Date();
-  return new Date(now.getTime() + 9 * 60 * 60 * 1000);
-}
-
-// ── 영업일 기준 날짜 계산 (KST 06:00 리셋) ──
-function getBusinessDate() {
-  const kst = nowKST();
-  if (kst.getUTCHours() < 6) {
-    kst.setUTCDate(kst.getUTCDate() - 1);
-  }
-  return kst.toISOString().slice(0, 10);
-}
-
-// 영업일 기준 오늘의 데이터 범위: bizDate 06:00 KST ~ 다음날 05:59 KST
-function isInBusinessDay(datetimeStr, bizDate) {
-  // datetimeStr: "YYYY-MM-DD H:MM:SS" 또는 "YYYY-MM-DD HH:MM:SS" (KST)
-  // KST → UTC 변환: -9시간
-  const dt = parseKST(datetimeStr);
-  if (!dt) return false;
-  const from = new Date(bizDate + 'T06:00:00+09:00');
-  const to   = new Date(from.getTime() + 24 * 60 * 60 * 1000);
-  return dt >= from && dt < to;
-}
-
-// KST 시간 문자열을 Date 객체로 안전하게 파싱
-function parseKST(str) {
-  if (!str) return null;
-  // "YYYY-MM-DD H:MM:SS" → 분리 후 직접 조립
-  const m = str.trim().match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{1,2}):(\d{2}):(\d{2})$/);
-  if (!m) return null;
-  const [, y, mo, d, h, mi, s] = m;
-  // UTC로 변환 (KST = UTC+9)
-  return new Date(Date.UTC(+y, +mo-1, +d, +h-9, +mi, +s));
-}
-
-// ── 렌더링 전체 ──
-function renderAll() {
-  const bizDate = getBusinessDate();
-  // 합계 카드/시간대: 라이더별 시트 전체 합산 (스냅샷 구조 — 항상 최신 데이터)
-  renderCards(riderRows);
-  renderTimeCards(riderRows, bizDate);
-  renderTable(allRows);
-  renderRiderTable(riderRows);
-}
-
-function sum(arr,k){ return arr.reduce((a,r)=>a+(r[k]||0),0); }
-
-function renderCards(rows) {
-  const complete = sum(rows,'complete');
-  const reject   = sum(rows,'reject');
-  const cancel   = sum(rows,'cancel');
-  const rider    = sum(rows,'rider');
-  const totalCancel = cancel + rider;
-  const total    = complete + reject + totalCancel;
-  const acceptRate = total > 0 ? ((complete + totalCancel) / total * 100) : 0;
-
-  setText('valComplete', complete);
-  setText('valReject',   reject);
-  setText('valCancel',   cancel);
-  setText('valRider',    rider);
-  setText('valAccept',   acceptRate.toFixed(1) + '%');
-  setText('valAcceptSub', `(${complete + totalCancel} / ${total})`);
-}
-
-function renderTimeCards(rows, bizDate) {
-  const slots = ['morning','afternoon','evening','night'];
-  const goal = getGoal(bizDate);
-  const dow = new Date(bizDate + 'T12:00:00+09:00').getUTCDay();
-  const isWeekend = dow === 0 || dow === 6;
-
-  // 요일별 시간 표시 업데이트
-  document.getElementById('hours-morning').textContent   = isWeekend ? '06시 – 14시' : '06시 – 13시';
-  document.getElementById('hours-afternoon').textContent = isWeekend ? '14시 – 17시' : '13시 – 17시';
-
-  slots.forEach(slot => {
-    const actual = sum(rows, slot);
-    const g      = goal[slot];
-    const pct    = g > 0 ? Math.min(Math.round(actual/g*100), 999) : 0;
-    const fillW  = g > 0 ? Math.min(actual/g*100, 100) : 0;
-    const diff   = actual - g;
-
-    setText(`val-${slot}`,  actual);
-    setText(`goal-${slot}`, g);
-    setText(`pct-${slot}`,  `${pct}%`);
-    document.getElementById(`fill-${slot}`).style.width = fillW + '%';
-
-    const badge = document.getElementById(`badge-${slot}`);
-    if (actual >= g && g > 0) {
-      badge.textContent = `✓ 달성 (+${diff})`;
-      badge.className = 'achieve-badge hit';
-    } else if (g > 0) {
-      badge.textContent = `✗ ${diff}건 부족`;
-      badge.className = 'achieve-badge miss';
-    } else {
-      badge.textContent = '–';
-      badge.className = 'achieve-badge none';
-    }
-
-    document.getElementById(`goalinfo-${slot}`).textContent =
-      `📅 ${bizDate} (${DOW_KR[dow]}요일) 기준 목표 · 06:00 리셋`;
-  });
-}
-
-// ── 라이더 CSV 파싱 ──
-// 헤더: 갱신시간, 이름, 운행상태, 휴대폰번호, 완료, 거절, 배차취소, 배달취소(라이더귀책), 아침점심피크, 오후논피크, 저녁피크, 심야논피크
-function parseRiderCSV(csv) {
+// ── CSV 파싱 ──
+function parseCSV(csv) {
   const lines = csv.trim().split('\n');
   if (lines.length < 2) return [];
   const rows = [];
   for (let i = 1; i < lines.length; i++) {
     const cols = splitCSVLine(lines[i]);
-    if (!cols[1]) continue;
+    if (!cols[0]) continue;
+    const raw = cols[0].replace(/"/g,'').trim();
+    if (!raw) continue;
+    const date = raw.slice(0,10);
     rows.push({
-      datetime:  cols[0]?.replace(/"/g,'').trim(),
-      name:      cols[1]?.replace(/"/g,'').trim(),
-      status:    cols[2]?.replace(/"/g,'').trim(),
-      phone:     cols[3]?.replace(/"/g,'').trim(),
-      complete:  toNum(cols[4]),
-      reject:    toNum(cols[5]),
-      cancel:    toNum(cols[6]),
-      rider:     toNum(cols[7]),
-      morning:   toNum(cols[8]),
-      afternoon: toNum(cols[9]),
-      evening:   toNum(cols[10]),
-      night:     toNum(cols[11]),
+      date, datetime: raw,
+      complete:  toNum(cols[1]),
+      reject:    toNum(cols[2]),
+      cancel:    toNum(cols[3]),
+      rider:     toNum(cols[4]),
+      morning:   toNum(cols[5]),
+      afternoon: toNum(cols[6]),
+      evening:   toNum(cols[7]),
+      night:     toNum(cols[8]),
     });
   }
-  return rows;
+  return rows.sort((a,b) => a.datetime.localeCompare(b.datetime));
+}
+function splitCSVLine(line) {
+const r=[]; let cur=''; let q=false;
+for(const c of line){
+if(c==='"'){q=!q;continue}
+if(c===','&&!q){r.push(cur);cur='';continue}
+cur+=c;
+}
+r.push(cur); return r;
+}
+function toNum(v){ if(!v)return 0; const n=parseInt(v.toString().replace(/[^0-9\-]/g,''),10); return isNaN(n)?0:n; }
+
+// ── KST 기준 현재 시각 ──
+function nowKST() {
+// KST = UTC+9
+const now = new Date();
+return new Date(now.getTime() + 9 * 60 * 60 * 1000);
 }
 
-// ── 라이더 테이블 렌더 ──
-function renderRiderTable(rows) {
-  document.getElementById('totalRiders').textContent = rows.length;
-  const tbody = document.getElementById('riderTable');
-  if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;color:var(--text-muted);padding:32px">데이터 없음</td></tr>';
+// ── 영업일 기준 날짜 계산 (KST 06:00 리셋) ──
+function getBusinessDate() {
+const kst = nowKST();
+if (kst.getUTCHours() < 6) {
+kst.setUTCDate(kst.getUTCDate() - 1);
+}
+return kst.toISOString().slice(0, 10);
+}
+
+// 영업일 기준 오늘의 데이터 범위: bizDate 06:00 KST ~ 다음날 05:59 KST
+function isInBusinessDay(datetimeStr, bizDate) {
+// datetimeStr: "YYYY-MM-DD H:MM:SS" 또는 "YYYY-MM-DD HH:MM:SS" (KST)
+// KST → UTC 변환: -9시간
+const dt = parseKST(datetimeStr);
+if (!dt) return false;
+const from = new Date(bizDate + 'T06:00:00+09:00');
+const to   = new Date(from.getTime() + 24 * 60 * 60 * 1000);
+return dt >= from && dt < to;
+}
+
+// KST 시간 문자열을 Date 객체로 안전하게 파싱
+function parseKST(str) {
+if (!str) return null;
+// "YYYY-MM-DD H:MM:SS" → 분리 후 직접 조립
+const m = str.trim().match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{1,2}):(\d{2}):(\d{2})$/);
+if (!m) return null;
+const [, y, mo, d, h, mi, s] = m;
+// UTC로 변환 (KST = UTC+9)
+return new Date(Date.UTC(+y, +mo-1, +d, +h-9, +mi, +s));
+}
+
+// ── 렌더링 전체 ──
+function renderAll() {
+const bizDate = getBusinessDate();
+  const todayRows = allRows.filter(r => isInBusinessDay(r.datetime, bizDate));
+
+  renderCards(todayRows);
+  renderTimeCards(todayRows, bizDate);
+  renderTable(allRows);
+  // 라이더 시트의 가장 최신 갱신시간 기준으로 오늘 데이터 판별
+  // 라이더별 시트는 매번 전체를 덮어쓰는 구조이므로 최신 행 전체를 사용
+  const latestDatetime = riderRows.length > 0 ? riderRows[0].datetime : '';
+  const todayRiders = latestDatetime && isInBusinessDay(latestDatetime, bizDate)
+    ? riderRows
+    : riderRows; // 항상 전체 사용 (라이더 시트는 현재 스냅샷)
+
+  renderCards(todayRiders);
+  renderTimeCards(todayRiders, bizDate);
+renderRiderTable(riderRows);
+}
+
+function sum(arr,k){ return arr.reduce((a,r)=>a+(r[k]||0),0); }
+
+function renderCards(rows) {
+const complete = sum(rows,'complete');
+const reject   = sum(rows,'reject');
+const cancel   = sum(rows,'cancel');
+const rider    = sum(rows,'rider');
+const totalCancel = cancel + rider;
+const total    = complete + reject + totalCancel;
+const acceptRate = total > 0 ? ((complete + totalCancel) / total * 100) : 0;
+
+setText('valComplete', complete);
+setText('valReject',   reject);
+setText('valCancel',   cancel);
+setText('valRider',    rider);
+setText('valAccept',   acceptRate.toFixed(1) + '%');
+setText('valAcceptSub', `(${complete + totalCancel} / ${total})`);
+}
+
+function renderTimeCards(rows, bizDate) {
+const slots = ['morning','afternoon','evening','night'];
+const goal = getGoal(bizDate);
+const dow = new Date(bizDate + 'T12:00:00+09:00').getUTCDay();
+
+slots.forEach(slot => {
+const actual = sum(rows, slot);
+const g      = goal[slot];
+const pct    = g > 0 ? Math.min(Math.round(actual/g*100), 999) : 0;
+const fillW  = g > 0 ? Math.min(actual/g*100, 100) : 0;
+const diff   = actual - g;
+
+setText(`val-${slot}`,  actual);
+setText(`goal-${slot}`, g);
+setText(`pct-${slot}`,  `${pct}%`);
+document.getElementById(`fill-${slot}`).style.width = fillW + '%';
+
+const badge = document.getElementById(`badge-${slot}`);
+if (actual >= g && g > 0) {
+badge.textContent = `✓ 달성 (+${diff})`;
+badge.className = 'achieve-badge hit';
+} else if (g > 0) {
+badge.textContent = `✗ ${diff}건 부족`;
+badge.className = 'achieve-badge miss';
+} else {
+badge.textContent = '–';
+badge.className = 'achieve-badge none';
+}
+
+document.getElementById(`goalinfo-${slot}`).textContent =
+`📅 ${bizDate} (${DOW_KR[dow]}요일) 기준 목표 · 06:00 리셋`;
+});
+}
+
+// ── 테이블 ──
+function renderTable(rows) {
+  document.getElementById('totalRows').textContent = rows.length;
+  const tbody = document.getElementById('dataTable');
+  if(!rows.length){
+    tbody.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:32px">해당 기간 데이터 없음</td></tr>';
     return;
   }
 
+  const slotKeys = ['morning','afternoon','evening','night'];
+  const slotColors = {morning:'num-morning',afternoon:'num-afternoon',evening:'num-evening',night:'num-night'};
+
   // 합계행
-  const keys = ['complete','reject','cancel','rider','morning','afternoon','evening','night'];
   const totals = {};
-  keys.forEach(k => totals[k] = rows.reduce((a,r)=>a+(r[k]||0),0));
-  const totalCancel = totals.cancel + totals.rider;
-  const totalAll = totals.complete + totals.reject + totalCancel;
-  const totalRate = totalAll > 0 ? ((totals.complete + totalCancel) / totalAll * 100).toFixed(1) : '–';
+  ['complete','reject','cancel','rider',...slotKeys].forEach(k => totals[k]=sum(rows,k));
 
-  const colorMap = {
-    complete:'num-complete', reject:'num-reject', cancel:'num-cancel', rider:'num-rider',
-    morning:'num-morning', afternoon:'num-afternoon', evening:'num-evening', night:'num-night'
-  };
-
-  // 운행중 먼저, 그 다음 완료순 정렬
-  const sorted = [...rows].sort((a,b) => {
-    const aRun = (a.status === '운행중' || a.status === '운행 중') ? 0 : 1;
-    const bRun = (b.status === '운행중' || b.status === '운행 중') ? 0 : 1;
-    if (aRun !== bRun) return aRun - bRun;
-    return b.complete - a.complete;
+  // 합계 목표: 각 날짜 목표 합산
+  const uniqueDates = [...new Set(rows.map(r=>r.date))];
+  const goalTotals = {morning:0,afternoon:0,evening:0,night:0};
+  uniqueDates.forEach(d => {
+    const g = getGoal(d);
+    slotKeys.forEach(s => goalTotals[s] += g[s]);
   });
+
+  function goalCell(actual, goal) {
+    const diff = actual - goal;
+    const cls  = actual >= goal ? 'hit' : 'miss';
+    const sign = diff >= 0 ? '+' : '';
+    return `<td class="goal-cell ${cls}">${actual}<span style="opacity:.6"> / ${goal}</span><br><span style="font-size:10px">${sign}${diff}</span></td>`;
+  }
 
   tbody.innerHTML = `
     <tr style="background:rgba(255,205,0,.05);font-weight:700;">
-      <td style="color:var(--accent);font-family:'JetBrains Mono',monospace;font-size:12px">합계 (${rows.length}명)</td>
-      <td>–</td>
-      <td style="color:var(--text-muted);font-size:12px">–</td>
+      <td class="td-date" style="color:var(--accent)">합계 (${rows.length}건)</td>
       <td class="num-cell num-complete">${totals.complete}</td>
       <td class="num-cell num-reject">${totals.reject}</td>
       <td class="num-cell num-cancel">${totals.cancel}</td>
       <td class="num-cell num-rider">${totals.rider}</td>
-      <td class="num-cell" style="color:#38bdf8">${totalRate}%</td>
-      <td class="num-cell num-morning">${totals.morning}</td>
-      <td class="num-cell num-afternoon">${totals.afternoon}</td>
-      <td class="num-cell num-evening">${totals.evening}</td>
-      <td class="num-cell num-night">${totals.night}</td>
+      ${slotKeys.map(s=>goalCell(totals[s], goalTotals[s])).join('')}
     </tr>
-    ${sorted.map(r => {
-      const isRunning = r.status === '운행중' || r.status === '운행 중';
-      const statusBadge = isRunning
-        ? `<span class="status-running">● 운행중</span>`
-        : `<span class="status-stopped">○ 종료</span>`;
-      const tc = r.cancel + r.rider;
-      const tot = r.complete + r.reject + tc;
-      const rate = tot > 0 ? ((r.complete + tc) / tot * 100).toFixed(1) + '%' : '–';
+    ${[...rows].reverse().map(r => {
+      const g = getGoal(r.date);
+      const dow = DOW_KR[new Date(r.date+'T12:00:00+09:00').getUTCDay()];
       return `<tr>
-        <td style="font-weight:600">${r.name}</td>
-        <td>${statusBadge}</td>
-        <td style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-muted)">${r.phone}</td>
+        <td class="td-date">${r.datetime}<br><span style="font-size:10px;color:var(--text-muted)">${dow}요일</span></td>
         <td class="num-cell num-complete">${r.complete}</td>
         <td class="num-cell num-reject">${r.reject}</td>
         <td class="num-cell num-cancel">${r.cancel}</td>
         <td class="num-cell num-rider">${r.rider}</td>
-        <td class="num-cell" style="color:#38bdf8">${rate}</td>
-        <td class="num-cell num-morning">${r.morning}</td>
-        <td class="num-cell num-afternoon">${r.afternoon}</td>
-        <td class="num-cell num-evening">${r.evening}</td>
-        <td class="num-cell num-night">${r.night}</td>
+        ${slotKeys.map(s=>goalCell(r[s], g[s])).join('')}
       </tr>`;
     }).join('')}
   `;
 }
 
+// ── 라이더 CSV 파싱 ──
+// 헤더: 갱신시간, 이름, 운행상태, 휴대폰번호, 완료, 거절, 배차취소, 배달취소(라이더귀책), 아침점심피크, 오후논피크, 저녁피크, 심야논피크
+function parseRiderCSV(csv) {
+const lines = csv.trim().split('\n');
+if (lines.length < 2) return [];
+const rows = [];
+for (let i = 1; i < lines.length; i++) {
+const cols = splitCSVLine(lines[i]);
+if (!cols[1]) continue;
+rows.push({
+datetime:  cols[0]?.replace(/"/g,'').trim(),
+name:      cols[1]?.replace(/"/g,'').trim(),
+status:    cols[2]?.replace(/"/g,'').trim(),
+phone:     cols[3]?.replace(/"/g,'').trim(),
+complete:  toNum(cols[4]),
+reject:    toNum(cols[5]),
+cancel:    toNum(cols[6]),
+rider:     toNum(cols[7]),
+morning:   toNum(cols[8]),
+afternoon: toNum(cols[9]),
+evening:   toNum(cols[10]),
+night:     toNum(cols[11]),
+});
+}
+return rows;
+}
+
+// ── 라이더 테이블 렌더 ──
+function renderRiderTable(rows) {
+document.getElementById('totalRiders').textContent = rows.length;
+const tbody = document.getElementById('riderTable');
+if (!rows.length) {
+tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;color:var(--text-muted);padding:32px">데이터 없음</td></tr>';
+return;
+}
+
+// 합계행
+const keys = ['complete','reject','cancel','rider','morning','afternoon','evening','night'];
+const totals = {};
+keys.forEach(k => totals[k] = rows.reduce((a,r)=>a+(r[k]||0),0));
+const totalCancel = totals.cancel + totals.rider;
+const totalAll = totals.complete + totals.reject + totalCancel;
+const totalRate = totalAll > 0 ? ((totals.complete + totalCancel) / totalAll * 100).toFixed(1) : '–';
+
+const colorMap = {
+complete:'num-complete', reject:'num-reject', cancel:'num-cancel', rider:'num-rider',
+morning:'num-morning', afternoon:'num-afternoon', evening:'num-evening', night:'num-night'
+};
+
+// 운행중 먼저, 그 다음 완료순 정렬
+const sorted = [...rows].sort((a,b) => {
+const aRun = (a.status === '운행중' || a.status === '운행 중') ? 0 : 1;
+const bRun = (b.status === '운행중' || b.status === '운행 중') ? 0 : 1;
+if (aRun !== bRun) return aRun - bRun;
+return b.complete - a.complete;
+});
+
+tbody.innerHTML = `
+   <tr style="background:rgba(255,205,0,.05);font-weight:700;">
+     <td style="color:var(--accent);font-family:'JetBrains Mono',monospace;font-size:12px">합계 (${rows.length}명)</td>
+     <td>–</td>
+     <td style="color:var(--text-muted);font-size:12px">–</td>
+     <td class="num-cell num-complete">${totals.complete}</td>
+     <td class="num-cell num-reject">${totals.reject}</td>
+     <td class="num-cell num-cancel">${totals.cancel}</td>
+     <td class="num-cell num-rider">${totals.rider}</td>
+     <td class="num-cell" style="color:#38bdf8">${totalRate}%</td>
+     <td class="num-cell num-morning">${totals.morning}</td>
+     <td class="num-cell num-afternoon">${totals.afternoon}</td>
+     <td class="num-cell num-evening">${totals.evening}</td>
+     <td class="num-cell num-night">${totals.night}</td>
+   </tr>
+   ${sorted.map(r => {
+     const isRunning = r.status === '운행중' || r.status === '운행 중';
+     const statusBadge = isRunning
+       ? `<span class="status-running">● 운행중</span>`
+       : `<span class="status-stopped">○ 종료</span>`;
+     const tc = r.cancel + r.rider;
+     const tot = r.complete + r.reject + tc;
+     const rate = tot > 0 ? ((r.complete + tc) / tot * 100).toFixed(1) + '%' : '–';
+     return `<tr>
+       <td style="font-weight:600">${r.name}</td>
+       <td>${statusBadge}</td>
+       <td style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-muted)">${r.phone}</td>
+       <td class="num-cell num-complete">${r.complete}</td>
+       <td class="num-cell num-reject">${r.reject}</td>
+       <td class="num-cell num-cancel">${r.cancel}</td>
+       <td class="num-cell num-rider">${r.rider}</td>
+       <td class="num-cell" style="color:#38bdf8">${rate}</td>
+       <td class="num-cell num-morning">${r.morning}</td>
+       <td class="num-cell num-afternoon">${r.afternoon}</td>
+       <td class="num-cell num-evening">${r.evening}</td>
+       <td class="num-cell num-night">${r.night}</td>
+     </tr>`;
+   }).join('')}
+ `;
+}
+
 // ── 10초 카운트다운 표시 ──
 let countdown = 10;
 setInterval(() => {
-  countdown = countdown <= 1 ? 10 : countdown - 1;
-  const badge = document.getElementById('countdownBadge');
-  if (badge) badge.textContent = countdown + 's';
+countdown = countdown <= 1 ? 10 : countdown - 1;
+const badge = document.getElementById('countdownBadge');
+if (badge) badge.textContent = countdown + 's';
 }, 1000);
 
 // ── 날짜 헬퍼 ──
