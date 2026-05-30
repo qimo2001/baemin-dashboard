@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DS 배밀플러스 배달현황 대시보드</title>
+<title>배달현황 대시보드</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
@@ -46,7 +46,9 @@
     color:var(--reject);padding:12px 16px;border-radius:8px;margin-bottom:18px;font-size:13px;display:none}
 
   /* ── 핵심 지표 카드 ── */
-  .stats-grid{display:grid !important;grid-template-columns:repeat(5,1fr) !important;gap:14px;margin-bottom:20px}
+  .stats-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:20px}
+  .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;
+    padding:18px;position:relative;overflow:hidden;transition:transform .2s}
   .stat-card:hover{transform:translateY(-2px)}
   .stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
   .stat-card.complete::before{background:var(--complete)}
@@ -54,14 +56,14 @@
   .stat-card.cancel::before{background:var(--cancel)}
   .stat-card.rider::before{background:var(--rider)}
   .stat-card.accept::before{background:#38bdf8}
-  .stat-icon{position:absolute;top:18px;right:18px;font-size:26px;opacity:.15}
-  .stat-label{font-size:10px;color:var(--text-muted);letter-spacing:.03em;text-transform:uppercase;margin-bottom:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .stat-value{font-family:'JetBrains Mono',monospace;font-size:44px;font-weight:700;line-height:1;margin-bottom:4px}
+  .stat-icon{position:absolute;top:16px;right:16px;font-size:22px;opacity:.15}
+  .stat-label{font-size:10px;color:var(--text-muted);letter-spacing:.03em;text-transform:uppercase;margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .stat-value{font-family:'JetBrains Mono',monospace;font-size:38px;font-weight:700;line-height:1;margin-bottom:4px}
   .stat-card.complete .stat-value{color:var(--complete)}
   .stat-card.reject   .stat-value{color:var(--reject)}
   .stat-card.cancel   .stat-value{color:var(--cancel)}
   .stat-card.rider    .stat-value{color:var(--rider)}
-  .stat-card.accept   .stat-value{color:#38bdf8;font-size:36px}
+  .stat-card.accept   .stat-value{color:#38bdf8;font-size:30px}
   .stat-sub{font-size:11px;color:var(--text-muted)}
 
   /* ── 시간대 카드 (목표 포함) ── */
@@ -145,22 +147,20 @@
   footer{text-align:center;padding:18px;color:var(--text-muted);font-size:11px;
     font-family:'JetBrains Mono',monospace;border-top:1px solid var(--border)}
 
-  @media(max-width:1100px){
-    .stats-grid{grid-template-columns:repeat(5,1fr) !important}
-    .stat-value{font-size:34px}
-    .stat-card{padding:16px}
+  @media(max-width:1200px){
+    .stat-value{font-size:30px}
+    .stat-card.accept .stat-value{font-size:24px}
   }
   @media(max-width:900px){
-    .stats-grid{grid-template-columns:repeat(5,1fr) !important}
-    .stat-value{font-size:28px}
-    .stat-card{padding:14px}
     .time-section{grid-template-columns:1fr 1fr}
   }
   @media(max-width:600px){
-    .stats-grid{grid-template-columns:repeat(5,1fr) !important}
+    .stats-grid{grid-template-columns:repeat(5,1fr)}
     .stat-value{font-size:18px}
-    .stat-card{padding:10px}
+    .stat-card.accept .stat-value{font-size:14px}
+    .stat-card{padding:8px}
     .stat-icon{display:none}
+    .stat-sub{display:none}
     .time-section{grid-template-columns:1fr}
     .time-actual{font-size:32px}
   }
@@ -291,7 +291,7 @@
         <div class="time-color-bar"></div>
         <div class="time-card-title">
           <div class="time-card-name">저녁피크</div>
-          <div class="time-card-hours">17시 – 20시</div>
+          <div class="time-card-hours">17시 – 22시</div>
         </div>
         <div class="achieve-badge none" id="badge-evening">–</div>
       </div>
@@ -321,7 +321,7 @@
         <div class="time-color-bar"></div>
         <div class="time-card-title">
           <div class="time-card-name">심야논피크</div>
-          <div class="time-card-hours">20시 – 03시</div>
+          <div class="time-card-hours">22시 – 06시</div>
         </div>
         <div class="achieve-badge none" id="badge-night">–</div>
       </div>
@@ -483,15 +483,10 @@ function parseKST(str) {
 // ── 렌더링 전체 ──
 function renderAll() {
   const bizDate = getBusinessDate();
-  // 라이더 시트의 가장 최신 갱신시간 기준으로 오늘 데이터 판별
-  // 라이더별 시트는 매번 전체를 덮어쓰는 구조이므로 최신 행 전체를 사용
-  const latestDatetime = riderRows.length > 0 ? riderRows[0].datetime : '';
-  const todayRiders = latestDatetime && isInBusinessDay(latestDatetime, bizDate)
-    ? riderRows
-    : riderRows; // 항상 전체 사용 (라이더 시트는 현재 스냅샷)
-
-  renderCards(todayRiders);
-  renderTimeCards(todayRiders, bizDate);
+  // 합계 카드/시간대: 라이더별 시트 전체 합산 (스냅샷 구조 — 항상 최신 데이터)
+  renderCards(riderRows);
+  renderTimeCards(riderRows, bizDate);
+  renderTable(allRows);
   renderRiderTable(riderRows);
 }
 
