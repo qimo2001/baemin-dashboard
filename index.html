@@ -396,38 +396,35 @@ const HOLIDAY_GOAL = GOALS[6];
 
 const DOW_KR = ['일','월','화','수','목','금','토'];
 
-// ── 공휴일 캐시 (YYYY-MM-DD → true) ──
-let holidayCache = {};
-let holidayCacheYear = null;
+// ── 공휴일 캐시 ──
+let holidaySet = new Set();
 
-// 공공데이터포털 특일정보 API로 공휴일 조회
-async function fetchHolidays(year) {
-  if (holidayCacheYear === year) return; // 이미 로드됨
-  const API_KEY = 'af50eae8b52a95bbfb85c1eaf00d63095730bcf9085e33e974dfd7724a7181e4';
+async function fetchHolidays() {
   try {
-    const url = `https://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getHoliDeInfo?serviceKey=${API_KEY}&solYear=${year}&numOfRows=50&_type=json`;
-    const res = await fetch(url);
+    const res = await fetch('https://api.olaf.kr/holidays');
     const json = await res.json();
-    const items = json?.response?.body?.items?.item;
-    if (!items) return;
-    const list = Array.isArray(items) ? items : [items];
-    list.forEach(item => {
-      const d = String(item.locdate); // 예: 20250101
-      const dateStr = `${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}`;
-      holidayCache[dateStr] = true;
+    const items = json?.result?.data || [];
+    items.forEach(item => {
+      // start ~ end 사이 모든 날짜를 공휴일로 등록
+      const start = new Date(item.start);
+      const end   = new Date(item.end);
+      for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
+        const yyyy = d.getFullYear();
+        const mm   = String(d.getMonth() + 1).padStart(2, '0');
+        const dd   = String(d.getDate()).padStart(2, '0');
+        holidaySet.add(`${yyyy}-${mm}-${dd}`);
+      }
     });
-    holidayCacheYear = year;
   } catch(e) {
     console.warn('공휴일 API 오류:', e);
   }
 }
 
 function isHoliday(dateStr) {
-  return !!holidayCache[dateStr];
+  return holidaySet.has(dateStr);
 }
 
 function getGoal(dateStr) {
-  // 공휴일이면 토요일 목표 적용
   if (isHoliday(dateStr)) return HOLIDAY_GOAL;
   const d = new Date(dateStr + 'T12:00:00+09:00');
   return GOALS[d.getUTCDay()];
@@ -438,8 +435,7 @@ let riderRows = [];
 
 // ── 초기 로드 + 10초 자동 갱신 ──
 window.addEventListener('DOMContentLoaded', async () => {
-  const year = new Date().getFullYear();
-  await fetchHolidays(year);
+  await fetchHolidays(); // 공휴일 먼저 로드
   loadData();
   setInterval(loadData, 10000);
 });
