@@ -391,22 +391,57 @@ const GOALS = {
 5: { morning:24, afternoon:21, evening:32, night:33 }, // 금
 6: { morning:31, afternoon:22, evening:36, night:31 }, // 토
 };
+// 공휴일은 토요일(6) 기준 목표 적용
+const HOLIDAY_GOAL = GOALS[6];
 
 const DOW_KR = ['일','월','화','수','목','금','토'];
 
+// ── 공휴일 캐시 (YYYY-MM-DD → true) ──
+let holidayCache = {};
+let holidayCacheYear = null;
+
+// 공공데이터포털 특일정보 API로 공휴일 조회
+async function fetchHolidays(year) {
+  if (holidayCacheYear === year) return; // 이미 로드됨
+  const API_KEY = 'af50eae8b52a95bbfb85c1eaf00d63095730bcf9085e33e974dfd7724a7181e4';
+  try {
+    const url = `https://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getHoliDeInfo?serviceKey=${API_KEY}&solYear=${year}&numOfRows=50&_type=json`;
+    const res = await fetch(url);
+    const json = await res.json();
+    const items = json?.response?.body?.items?.item;
+    if (!items) return;
+    const list = Array.isArray(items) ? items : [items];
+    list.forEach(item => {
+      const d = String(item.locdate); // 예: 20250101
+      const dateStr = `${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}`;
+      holidayCache[dateStr] = true;
+    });
+    holidayCacheYear = year;
+  } catch(e) {
+    console.warn('공휴일 API 오류:', e);
+  }
+}
+
+function isHoliday(dateStr) {
+  return !!holidayCache[dateStr];
+}
+
 function getGoal(dateStr) {
-// dateStr: "YYYY-MM-DD" — KST 기준 날짜
-const d = new Date(dateStr + 'T12:00:00+09:00'); // 정오로 고정해 DST 오차 방지
-return GOALS[d.getUTCDay()];
+  // 공휴일이면 토요일 목표 적용
+  if (isHoliday(dateStr)) return HOLIDAY_GOAL;
+  const d = new Date(dateStr + 'T12:00:00+09:00');
+  return GOALS[d.getUTCDay()];
 }
 
 let allRows   = [];
 let riderRows = [];
 
 // ── 초기 로드 + 10초 자동 갱신 ──
-window.addEventListener('DOMContentLoaded', () => {
-loadData();
-setInterval(loadData, 10000);
+window.addEventListener('DOMContentLoaded', async () => {
+  const year = new Date().getFullYear();
+  await fetchHolidays(year);
+  loadData();
+  setInterval(loadData, 10000);
 });
 
 // ── 데이터 로드 ──
@@ -572,7 +607,9 @@ badge.className = 'achieve-badge none';
 }
 
 document.getElementById(`goalinfo-${slot}`).textContent =
-`📅 ${bizDate} (${DOW_KR[dow]}요일) 기준 목표 · 06:00 리셋`;
+  isHoliday(bizDate)
+    ? `🎌 ${bizDate} (${DOW_KR[dow]}요일) 공휴일 → 토요일 목표 적용`
+    : `📅 ${bizDate} (${DOW_KR[dow]}요일) 기준 목표 · 06:00 리셋`;
 });
 }
 
