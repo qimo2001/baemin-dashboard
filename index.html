@@ -949,7 +949,7 @@ function renderSLA(rows) {
         <span style="color:var(--accent);font-family:'JetBrains Mono',monospace;font-size:11px">${d.ds}pt</span>
       </div>
       <div style="font-size:10px;color:#38bdf8;font-family:'JetBrains Mono',monospace;margin-bottom:6px">
-        수락률 ${rate}% · 완료 ${row?.complete||0} / 전체 ${tot}
+        수락률 ${rate}% · 완료 ${row?.complete||0} / 전체 ${denom}
       </div>
       <div>${slotRows}</div>
     </div>`;
