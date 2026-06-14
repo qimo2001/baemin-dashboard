@@ -884,13 +884,13 @@ function renderSLA(rows) {
   // 일별 수락률 계산 함수
   function dailyAcceptRate(r) {
     const denom = r.complete + r.reject + r.cancel + r.rider;
-    return denom > 0 ? (r.complete / denom * 100) : 0;
+    return denom > 0 ? (r.complete / denom * 100) : null;
   }
 
-  // 주간 수락률 = 일별 수락률 합 / 7
-  const dailyRates = setRows.map(r => dailyAcceptRate(r));
+  // 주간 수락률 = 데이터 있는 날의 일별 수락률 합 / 데이터 있는 날수
+  const dailyRates = setRows.map(r => dailyAcceptRate(r)).filter(v => v !== null);
   const weeklyRate = dailyRates.length > 0
-    ? dailyRates.reduce((a, b) => a + b, 0) / 7
+    ? dailyRates.reduce((a, b) => a + b, 0) / dailyRates.length
     : 0;
 
   const{score:aScore,label:aLabel}=getAcceptScore(weeklyRate);
@@ -898,7 +898,7 @@ function renderSLA(rows) {
   setText('slaAcceptSub',`주간 수락률 ${weeklyRate.toFixed(1)}% (${aLabel})`);
   const tC=setRows.reduce((a,r)=>a+r.complete,0);
   const tDenom=setRows.reduce((a,r)=>a+r.complete+r.reject+r.cancel+r.rider,0);
-  setText('slaAcceptDetail',`주간 수락률 = 일별합계 / 7\n완료합계: ${tC}건 / 전체합계: ${tDenom}건`);
+  setText('slaAcceptDetail',`일별 평균 (${dailyRates.length}일 기준)\n완료합계: ${tC}건 / 전체합계: ${tDenom}건`);
 
   // SLA 총점: 원점수 환산값 + 수락률 점수
   const total=volScaled+aScore;
