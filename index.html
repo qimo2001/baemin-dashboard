@@ -704,12 +704,12 @@ function setText(id,v){const el=document.getElementById(id);if(el)el.textContent
 function renderHome(rows, bizDate) {
   const complete=sum(rows,'complete'), reject=sum(rows,'reject');
   const cancel=sum(rows,'cancel'), rider=sum(rows,'rider');
-  const tc=cancel+rider, tot=complete+reject+tc;
-  const rate=tot>0?((complete+tc)/tot*100):0;
+  const denom=complete+reject+cancel+rider;
+  const rate=denom>0?(complete/denom*100):0;
   setText('valComplete',complete); setText('valReject',reject);
   setText('valCancel',cancel); setText('valRider',rider);
   setText('valAccept',rate.toFixed(1)+'%');
-  setText('valAcceptSub',`(${complete+tc} / ${tot})`);
+  setText('valAcceptSub',`완료 ${complete} / 추천 ${denom}`);
 
   const dow=new Date(bizDate+'T12:00:00+09:00').getUTCDay();
   const isWE=(dow===0||dow===6);
@@ -794,8 +794,8 @@ function renderRiderCards(rows) {
   if(!rows.length){el.innerHTML='<div style="text-align:center;color:var(--text-muted);padding:40px 0">라이더 없음</div>';return;}
   el.innerHTML=rows.map(r=>{
     const isRun=r.status==='운행중'||r.status==='운행 중';
-    const tc=r.cancel+r.rider, tot=r.complete+r.reject+tc;
-    const rate=tot>0?((r.complete+tc)/tot*100):0;
+    const denom=r.complete+r.reject+r.cancel+r.rider;
+    const rate=denom>0?(r.complete/denom*100):0;
     const ratePct=Math.min(rate,100);
     return `<div class="rider-card">
       <div class="rider-card-top">
@@ -881,15 +881,24 @@ function renderSLA(rows) {
   setText('slaVolumeSub', `60점 환산 → ${volScaled}점`);
   setText('slaVolumeDetail',`총: ${rawTotal}건 / 목표: ${TARGET}건 (${setCount}세트×750)\n진행: ${setRows.length}/7일`);
 
-  const tC=setRows.reduce((a,r)=>a+r.complete,0);
-  const tR=setRows.reduce((a,r)=>a+r.reject,0);
-  const tCan=setRows.reduce((a,r)=>a+r.cancel+r.rider,0);
-  const tAll=tC+tR+tCan;
-  const aRate=tAll>0?(tC+tCan)/tAll*100:0;
-  const{score:aScore,label:aLabel}=getAcceptScore(aRate);
+  // 일별 수락률 계산 함수
+  function dailyAcceptRate(r) {
+    const denom = r.complete + r.reject + r.cancel + r.rider;
+    return denom > 0 ? (r.complete / denom * 100) : 0;
+  }
+
+  // 주간 수락률 = 일별 수락률 합 / 7
+  const dailyRates = setRows.map(r => dailyAcceptRate(r));
+  const weeklyRate = dailyRates.length > 0
+    ? dailyRates.reduce((a, b) => a + b, 0) / 7
+    : 0;
+
+  const{score:aScore,label:aLabel}=getAcceptScore(weeklyRate);
   setText('slaAcceptScore',aScore);
-  setText('slaAcceptSub',`수락률 ${aRate.toFixed(1)}% (${aLabel})`);
-  setText('slaAcceptDetail',`완료+취소: ${tC+tCan}건\n전체: ${tAll}건`);
+  setText('slaAcceptSub',`주간 수락률 ${weeklyRate.toFixed(1)}% (${aLabel})`);
+  const tC=setRows.reduce((a,r)=>a+r.complete,0);
+  const tDenom=setRows.reduce((a,r)=>a+r.complete+r.reject+r.cancel+r.rider,0);
+  setText('slaAcceptDetail',`주간 수락률 = 일별합계 / 7\n완료합계: ${tC}건 / 전체합계: ${tDenom}건`);
 
   // SLA 총점: 원점수 환산값 + 수락률 점수
   const total=volScaled+aScore;
@@ -919,9 +928,12 @@ function renderSLA(rows) {
 
   // 날짜별로 4개 시간대를 한 카드에 표시
   sg.innerHTML = dayDetails.map(d => {
-    const dow=DOW_KR[d.dow];
+    const row = setRows.find(r => r.date === d.date);
+    const denom = row ? row.complete + row.reject + row.cancel + row.rider : 0;
+    const rate = denom > 0 ? (row.complete / denom * 100).toFixed(1) : '–';
     const holiday=isHoliday(d.date);
-    const dateLabel=d.date.slice(5); // MM-DD
+    const dow=DOW_KR[d.dow];
+    const dateLabel=d.date.slice(5);
     const slotRows=slots.map(s=>{
       const r=d.sr[s];
       return `<div class="slot-day-row">
@@ -935,6 +947,9 @@ function renderSLA(rows) {
       <div class="slot-name" style="display:flex;justify-content:space-between;align-items:center">
         <span>${dateLabel} (${dow})${holiday?' 🎌':''}</span>
         <span style="color:var(--accent);font-family:'JetBrains Mono',monospace;font-size:11px">${d.ds}pt</span>
+      </div>
+      <div style="font-size:10px;color:#38bdf8;font-family:'JetBrains Mono',monospace;margin-bottom:6px">
+        수락률 ${rate}% · 완료 ${row?.complete||0} / 전체 ${tot}
       </div>
       <div>${slotRows}</div>
     </div>`;
