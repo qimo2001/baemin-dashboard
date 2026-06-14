@@ -527,7 +527,42 @@ const DOW_KR = ['일','월','화','수','목','금','토'];
 
 // ── 공휴일 ──
 let holidaySet = new Set();
+
 async function fetchHolidays() {
+  const KEY = 'af50eae8b52a95bbfb85c1eaf00d63095730bcf9085e33e974dfd7724a7181e4';
+  const now = nowKST();
+  const year = now.getUTCFullYear();
+  // 올해 + 내년 공휴일 모두 로드
+  await Promise.all([year, year+1].map(y => fetchHolidayYear(KEY, y)));
+}
+
+async function fetchHolidayYear(KEY, year) {
+  try {
+    // 월별로 12개 호출 (API가 월 단위)
+    const months = Array.from({length:12},(_,i)=>String(i+1).padStart(2,'0'));
+    await Promise.all(months.map(async month => {
+      const url = `https://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getRestDeInfo`
+        + `?serviceKey=${KEY}&solYear=${year}&solMonth=${month}&numOfRows=50&_type=json`;
+      const res = await fetch(url);
+      if (!res.ok) return;
+      const json = await res.json();
+      const items = json?.response?.body?.items?.item;
+      if (!items) return;
+      const list = Array.isArray(items) ? items : [items];
+      list.forEach(item => {
+        if (item.isHoliday !== 'Y') return; // 휴일인 것만
+        const d = String(item.locdate);
+        holidaySet.add(`${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}`);
+      });
+    }));
+  } catch(e) {
+    // CORS 막힐 경우 olaf.kr 백업 API 사용
+    console.warn(`공공API 오류(${year}), 백업 사용:`, e);
+    await fetchHolidaysFallback();
+  }
+}
+
+async function fetchHolidaysFallback() {
   try {
     const res = await fetch('https://api.olaf.kr/holidays');
     const json = await res.json();
@@ -537,8 +572,9 @@ async function fetchHolidays() {
         holidaySet.add(d.toISOString().slice(0,10));
       }
     });
-  } catch(e) { console.warn('공휴일 API 오류',e); }
+  } catch(e2) { console.warn('백업 공휴일 API도 실패:', e2); }
 }
+
 function isHoliday(d) { return holidaySet.has(d); }
 function getGoal(d) {
   if (isHoliday(d)) return HOLIDAY_GOAL;
@@ -657,9 +693,14 @@ function renderHome(rows, bizDate) {
   const goal=getGoal(bizDate);
   const bizDowLabel=DOW_KR[dow];
   const holiday=isHoliday(bizDate);
+
+  // 세트 기준 현황 — 이번 세트 누적 완료 / setCount×750
+  const {start,end}=getCurrentSetRange();
+  const TARGET=setCount*750;
+  const setComplete=dailyRows.filter(r=>r.date>=start&&r.date<=end).reduce((a,r)=>a+r.complete,0);
   setText('bizDateBadge', holiday
-    ? `🎌 ${bizDate} 공휴일 (토 기준)`
-    : `📅 ${bizDate} (${bizDowLabel})`);
+    ? `🎌 ${bizDate} 공휴일 (토 기준) · 세트 ${setComplete}/${TARGET}건`
+    : `📅 ${bizDate} (${bizDowLabel}) · 세트 ${setComplete}/${TARGET}건`);
 
   ['morning','afternoon','evening','night'].forEach(slot=>{
     const actual=sum(rows,slot), g=goal[slot];
@@ -745,13 +786,9 @@ function getAcceptScore(rate) {
   if(rate>=60)return{score:20,label:'60~85% 미만'};
   return{score:0,label:'60% 미만'};
 }
-function getFee(s) {
-  if(s>=98)return{fee:'600원/건',range:'5구간(98~100점)'};
-  if(s>=90)return{fee:'500원/건',range:'4구간(90~98점 미만)'};
-  if(s>=85)return{fee:'400원/건',range:'3구간(85~90점 미만)'};
-  if(s>=80)return{fee:'300원/건',range:'2구간(80~85점 미만)'};
-  return{fee:'0원/건',range:'1구간(0~80점 미만)'};
-}
+
+// 관리비 고정 300원/건 (SLA 구간 확정 전 임시)
+const FEE_PER_UNIT = 300;
 
 function renderSLA(rows) {
   const {start,end}=getCurrentSetRange();
@@ -760,14 +797,16 @@ function renderSLA(rows) {
   setText('slaPeriod',`${start}(${sdow}) ~ ${end}(${edow})`);
 
   const setRows=rows.filter(r=>r.date>=start&&r.date<=end);
+  // 세트수 × 750건이 관리비 지급 상한
   const TARGET=setCount*750;
 
   const rawTotal=setRows.reduce((a,r)=>a+r.complete,0);
+  // 각 세트(750건)별 캡 → setCount개 세트이므로 최대 TARGET건
   const capped=Math.min(rawTotal,TARGET);
-  setText('slaTotal', rawTotal>TARGET?`${rawTotal} (${TARGET} 적용)`:String(rawTotal));
+  setText('slaTotal', rawTotal>TARGET?`${rawTotal}건 (${TARGET}건 적용)`:rawTotal+'건');
   const fill=document.getElementById('slaSetFill');
   if(fill)fill.style.width=Math.min(rawTotal/TARGET*100,100)+'%';
-  setText('slaSetPct',Math.round(rawTotal/TARGET*100)+'%');
+  setText('slaSetPct',`${Math.round(rawTotal/TARGET*100)}% (${setCount}세트 기준)`);
 
   const slots=['morning','afternoon','evening','night'];
   const slotNames={morning:'아침점심',afternoon:'오후논피크',evening:'저녁피크',night:'심야'};
@@ -789,7 +828,7 @@ function renderSLA(rows) {
   const volScaled=maxVol>0?Math.round(volScore/maxVol*60):0;
   setText('slaVolumeScore',volScaled);
   setText('slaVolumeSub',`원점수 ${volScore}/${maxVol}점`);
-  setText('slaVolumeDetail',`총 배달: ${rawTotal}건\n적용: ${capped}건 / 목표 ${TARGET}건\n진행: ${setRows.length}/7일`);
+  setText('slaVolumeDetail',`총: ${rawTotal}건 / 적용: ${capped}건\n목표: ${TARGET}건 (${setCount}세트×750)\n진행: ${setRows.length}/7일`);
 
   const tC=setRows.reduce((a,r)=>a+r.complete,0);
   const tR=setRows.reduce((a,r)=>a+r.reject,0);
@@ -802,28 +841,50 @@ function renderSLA(rows) {
   setText('slaAcceptDetail',`완료+취소: ${tC+tCan}건\n전체: ${tAll}건`);
 
   const total=volScaled+aScore;
-  const{fee,range}=getFee(total);
   setText('slaTotalScore',total);
+  // 구간 표시 (점수 참고용)
+  let range='';
+  if(total>=98)range='5구간(98~100점)';
+  else if(total>=90)range='4구간(90~98점 미만)';
+  else if(total>=85)range='3구간(85~90점 미만)';
+  else if(total>=80)range='2구간(80~85점 미만)';
+  else range='1구간(0~80점 미만)';
   setText('slaTotalRange',range);
-  setText('slaFee',fee);
-  const feeN=parseInt(fee.replace(/[^0-9]/g,''))||0;
-  const est=feeN*capped;
-  setText('slaFeeSub',feeN>0?`${feeN}원 × ${capped}건 = ${est.toLocaleString()}원`:'관리비 없음 (1구간)');
 
+  // 관리비: 300원 × 세트수×750 캡
+  setText('slaFee', `${FEE_PER_UNIT.toLocaleString()}원/건`);
+  const est=FEE_PER_UNIT*capped;
+  setText('slaFeeSub',`${FEE_PER_UNIT}원 × ${capped}건 = ${est.toLocaleString()}원\n(${setCount}세트 기준, 최대 ${TARGET}건)`);
+
+  // ── 시간대별 달성 상세: 날짜별 × 시간대별 테이블 ──
   const sg=document.getElementById('slaSlotGrid');
-  if(sg) sg.innerHTML=slots.map(s=>{
-    const days=dayDetails.map(d=>{
-      const r=d.sr[s]; const dow=DOW_KR[d.dow];
-      return`<div class="slot-day-row">
-        <span class="slot-dow">${dow}</span>
+  if(!sg)return;
+
+  if(!dayDetails.length){
+    sg.innerHTML='<div style="color:var(--text-muted);font-size:12px;padding:16px 0;text-align:center">이번 세트 데이터 없음</div>';
+    return;
+  }
+
+  // 날짜별로 4개 시간대를 한 카드에 표시
+  sg.innerHTML = dayDetails.map(d => {
+    const dow=DOW_KR[d.dow];
+    const holiday=isHoliday(d.date);
+    const dateLabel=d.date.slice(5); // MM-DD
+    const slotRows=slots.map(s=>{
+      const r=d.sr[s];
+      return `<div class="slot-day-row">
+        <span class="slot-dow" style="width:52px;font-size:10px">${slotNames[s]}</span>
         <span class="slot-actual ${r.ok?'slot-ok':'slot-ng'}">${r.actual}</span>
         <span class="slot-goal">/${r.goal}</span>
         <span class="slot-pt ${r.ok?'ok':'ng'}">${r.pt}pt</span>
       </div>`;
     }).join('');
-    return`<div class="slot-card">
-      <div class="slot-name">${slotNames[s]}</div>
-      <div>${days||'<div style="font-size:11px;color:var(--text-muted)">데이터 없음</div>'}</div>
+    return `<div class="slot-card">
+      <div class="slot-name" style="display:flex;justify-content:space-between;align-items:center">
+        <span>${dateLabel} (${dow})${holiday?' 🎌':''}</span>
+        <span style="color:var(--accent);font-family:'JetBrains Mono',monospace;font-size:11px">${d.ds}pt</span>
+      </div>
+      <div>${slotRows}</div>
     </div>`;
   }).join('');
 }
