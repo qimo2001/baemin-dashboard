@@ -253,6 +253,65 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 
 footer{text-align:center;padding:10px;color:var(--text-muted);font-size:10px;
   font-family:'JetBrains Mono',monospace;border-top:1px solid var(--border)}
+
+/* ── 분석 탭 ── */
+.anl-recommend{background:var(--surface);border:1px solid var(--border);border-radius:12px;
+  padding:16px;margin-bottom:12px;display:flex;align-items:center;gap:14px}
+.anl-recommend.up  {border-color:rgba(34,211,160,.4);background:rgba(34,211,160,.06)}
+.anl-recommend.hold{border-color:rgba(255,205,0,.3); background:rgba(255,205,0,.05)}
+.anl-recommend.down{border-color:rgba(255,68,102,.3);background:rgba(255,68,102,.06)}
+.anl-rec-icon{font-size:32px;flex-shrink:0}
+.anl-rec-title{font-size:16px;font-weight:700;margin-bottom:4px}
+.anl-recommend.up   .anl-rec-title{color:var(--complete)}
+.anl-recommend.hold .anl-rec-title{color:var(--accent)}
+.anl-recommend.down .anl-rec-title{color:var(--reject)}
+.anl-rec-desc{font-size:12px;color:var(--text-muted);line-height:1.5}
+
+.anl-summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:4px}
+.anl-sum-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px}
+.anl-sum-label{font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+.anl-sum-val{font-family:'JetBrains Mono',monospace;font-size:24px;font-weight:700;color:var(--accent);margin-bottom:3px}
+.anl-sum-sub{font-size:10px;color:var(--text-muted)}
+
+.anl-slot-list{display:flex;flex-direction:column;gap:8px}
+.anl-slot-row{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px}
+.anl-slot-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.anl-slot-name{font-size:12px;font-weight:700}
+.anl-slot-pct{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700}
+.anl-slot-pct.good{color:var(--complete)} .anl-slot-pct.warn{color:var(--accent)} .anl-slot-pct.bad{color:var(--reject)}
+.anl-slot-bar-bg{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:6px}
+.anl-slot-bar-fill{height:100%;border-radius:3px;transition:width .6s}
+.anl-slot-bar-fill.good{background:var(--complete)} .anl-slot-bar-fill.warn{background:var(--accent)} .anl-slot-bar-fill.bad{background:var(--reject)}
+.anl-slot-detail{font-size:10px;color:var(--text-muted)}
+
+.anl-dow-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.anl-dow-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;
+  padding:8px 4px;text-align:center}
+.anl-dow-label{font-size:10px;color:var(--text-muted);margin-bottom:4px}
+.anl-dow-val{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:var(--accent);margin-bottom:4px}
+.anl-dow-bar{height:3px;background:var(--border);border-radius:2px;overflow:hidden;margin:0 2px}
+.anl-dow-bar-fill{height:100%;background:var(--accent);border-radius:2px}
+.anl-dow-rate{font-size:9px;color:var(--text-muted);margin-top:3px}
+
+.anl-chart-wrap{background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  padding:12px;margin-bottom:4px}
+.anl-chart{display:flex;align-items:flex-end;gap:3px;height:80px}
+.anl-bar-wrap{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;height:100%;justify-content:flex-end}
+.anl-bar{width:100%;border-radius:3px 3px 0 0;min-height:2px;position:relative;cursor:pointer}
+.anl-bar:hover{filter:brightness(1.3)}
+.anl-bar .atip{display:none;position:absolute;bottom:105%;left:50%;transform:translateX(-50%);
+  background:var(--surface2);border:1px solid var(--border);padding:3px 6px;border-radius:4px;
+  font-size:9px;white-space:nowrap;z-index:10;font-family:'JetBrains Mono',monospace}
+.anl-bar:hover .atip{display:block}
+.anl-bar-label{font-size:8px;color:var(--text-muted);font-family:'JetBrains Mono',monospace}
+
+.anl-set-analysis{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
+.anl-set-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px}
+.anl-set-title{font-size:12px;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.anl-set-rows{display:flex;flex-direction:column;gap:5px}
+.anl-set-row{display:flex;justify-content:space-between;align-items:center;font-size:11px}
+.anl-set-key{color:var(--text-muted)}
+.anl-set-val{font-family:'JetBrains Mono',monospace;font-weight:700}
 </style>
 </head>
 <body>
@@ -485,6 +544,75 @@ footer{text-align:center;padding:10px;color:var(--text-muted);font-size:10px;
     <div class="slot-grid" id="slaSlotGrid"></div>
   </div>
 
+  <!-- ④ 분석 -->
+  <div id="page-analysis" class="tab-page">
+
+    <div class="section-header">
+      <div class="section-title">📈 세트 분석</div>
+      <div class="section-badge">최근 2주</div>
+    </div>
+
+    <!-- 종합 추천 -->
+    <div class="anl-recommend" id="anlRecommend">
+      <div class="anl-rec-icon" id="anlRecIcon">⏳</div>
+      <div class="anl-rec-content">
+        <div class="anl-rec-title" id="anlRecTitle">분석 중...</div>
+        <div class="anl-rec-desc" id="anlRecDesc">데이터를 불러오는 중입니다</div>
+      </div>
+    </div>
+
+    <!-- 핵심 지표 요약 -->
+    <div class="anl-summary-grid">
+      <div class="anl-sum-card">
+        <div class="anl-sum-label">일평균 완료</div>
+        <div class="anl-sum-val" id="anlAvgComplete">–</div>
+        <div class="anl-sum-sub" id="anlAvgCompleteSub">–</div>
+      </div>
+      <div class="anl-sum-card">
+        <div class="anl-sum-label">목표 달성일</div>
+        <div class="anl-sum-val" id="anlAchieveDays">–</div>
+        <div class="anl-sum-sub" id="anlAchieveDaysSub">–</div>
+      </div>
+      <div class="anl-sum-card">
+        <div class="anl-sum-label">평균 수락률</div>
+        <div class="anl-sum-val" id="anlAvgAccept">–</div>
+        <div class="anl-sum-sub">14일 평균</div>
+      </div>
+      <div class="anl-sum-card">
+        <div class="anl-sum-label">완료 트렌드</div>
+        <div class="anl-sum-val" id="anlTrend">–</div>
+        <div class="anl-sum-sub" id="anlTrendSub">–</div>
+      </div>
+    </div>
+
+    <!-- 시간대별 평균 달성률 -->
+    <div class="section-header" style="margin-top:14px">
+      <div class="section-title">⏰ 시간대별 평균 달성률</div>
+    </div>
+    <div class="anl-slot-list" id="anlSlotList"></div>
+
+    <!-- 요일별 패턴 -->
+    <div class="section-header" style="margin-top:14px">
+      <div class="section-title">📅 요일별 완료 패턴</div>
+    </div>
+    <div class="anl-dow-grid" id="anlDowGrid"></div>
+
+    <!-- 최근 14일 트렌드 -->
+    <div class="section-header" style="margin-top:14px">
+      <div class="section-title">📉 최근 14일 완료 추이</div>
+    </div>
+    <div class="anl-chart-wrap">
+      <div class="anl-chart" id="anlChart"></div>
+    </div>
+
+    <!-- 세트별 여유 분석 -->
+    <div class="section-header" style="margin-top:14px">
+      <div class="section-title">🎯 세트별 여유 분석</div>
+    </div>
+    <div class="anl-set-analysis" id="anlSetAnalysis"></div>
+
+  </div>
+
 </div>
 
 <!-- 하단 네비게이션 -->
@@ -500,6 +628,10 @@ footer{text-align:center;padding:10px;color:var(--text-muted);font-size:10px;
   <button class="nav-item" id="nav-sla" onclick="switchTab('sla')">
     <div class="nav-icon">📊</div>
     <div class="nav-label">점수 조회</div>
+  </button>
+  <button class="nav-item" id="nav-analysis" onclick="switchTab('analysis')">
+    <div class="nav-icon">📈</div>
+    <div class="nav-label">분석</div>
   </button>
 </nav>
 
@@ -706,6 +838,7 @@ function renderAll() {
   renderHome(riderRows, biz);
   renderRiderList(riderRows);
   renderSLA(dailyRows);
+  renderAnalysis(dailyRows);
 }
 function sum(arr,k){return arr.reduce((a,r)=>a+(r[k]||0),0);}
 function setText(id,v){const el=document.getElementById(id);if(el)el.textContent=v;}
@@ -964,6 +1097,200 @@ function renderSLA(rows) {
       <div>${slotRows}</div>
     </div>`;
   }).join('');
+}
+
+// ── 분석 탭 렌더 ──
+function renderAnalysis(rows) {
+  // 최근 14일 데이터
+  const kst = nowKST();
+  const today = kst.toISOString().slice(0,10);
+  const d14 = new Date(kst); d14.setUTCDate(d14.getUTCDate()-13);
+  const from14 = d14.toISOString().slice(0,10);
+  const recent = rows.filter(r => r.date >= from14 && r.date <= today)
+                     .sort((a,b) => a.date.localeCompare(b.date));
+
+  if (!recent.length) {
+    document.getElementById('anlRecTitle').textContent = '데이터 없음';
+    document.getElementById('anlRecDesc').textContent = '최근 14일 일별배달내역이 없습니다.';
+    return;
+  }
+
+  const slots = ['morning','afternoon','evening','night'];
+  const slotNames = {morning:'아침점심피크',afternoon:'오후논피크',evening:'저녁피크',night:'심야논피크'};
+  const slotColors = {morning:'var(--morning)',afternoon:'var(--afternoon)',evening:'var(--evening)',night:'var(--night)'};
+
+  // ── 일평균 완료 ──
+  const avgComplete = recent.reduce((a,r)=>a+r.complete,0) / recent.length;
+  const target1 = 750 / 7; // 1세트 하루 목표
+  const targetN = target1 * setCount;
+
+  // ── 목표 달성일 계산 ──
+  let achieveDays = 0;
+  recent.forEach(r => {
+    const dow = new Date(r.date+'T12:00:00+09:00').getUTCDay();
+    const hdow = isHoliday(r.date)?6:dow;
+    const dayTarget = Object.values(GOALS[hdow]).reduce((a,b)=>a+b,0) * setCount / 4; // 하루 총목표 근사
+    if (r.complete >= r.complete * 0.9) achieveDays++; // 시간대별 달성 여부
+  });
+
+  // 시간대별 달성일 계산
+  let totalAchieveDays = 0, totalDays = recent.length * slots.length;
+  recent.forEach(r => {
+    const dow = new Date(r.date+'T12:00:00+09:00').getUTCDay();
+    const hdow = isHoliday(r.date)?6:dow;
+    const goal = GOALS[hdow];
+    slots.forEach(s => { if(r[s] >= goal[s]*setCount) totalAchieveDays++; });
+  });
+  const achieveRate = totalDays > 0 ? totalAchieveDays/totalDays*100 : 0;
+
+  // ── 평균 수락률 ──
+  const dailyRates14 = recent.map(r=>{
+    const d=r.complete+r.reject+r.cancel+r.rider;
+    return d>0?r.complete/d*100:null;
+  }).filter(v=>v!==null);
+  const avgAccept = dailyRates14.length>0 ? dailyRates14.reduce((a,b)=>a+b,0)/dailyRates14.length : 0;
+
+  // ── 트렌드: 전반부 vs 후반부 평균 비교 ──
+  const half = Math.floor(recent.length/2);
+  const firstHalf = recent.slice(0,half);
+  const secondHalf = recent.slice(half);
+  const avg1 = firstHalf.length>0 ? firstHalf.reduce((a,r)=>a+r.complete,0)/firstHalf.length : 0;
+  const avg2 = secondHalf.length>0 ? secondHalf.reduce((a,r)=>a+r.complete,0)/secondHalf.length : 0;
+  const trendDiff = avg2 - avg1;
+  const trendPct = avg1>0 ? trendDiff/avg1*100 : 0;
+
+  // 핵심 지표 렌더
+  setText('anlAvgComplete', Math.round(avgComplete)+'건');
+  setText('anlAvgCompleteSub', `세트 하루목표 ${Math.round(target1*setCount)}건`);
+  setText('anlAchieveDays', Math.round(achieveRate)+'%');
+  setText('anlAchieveDaysSub', `시간대 목표달성률`);
+  setText('anlAvgAccept', avgAccept.toFixed(1)+'%');
+  const trendEl = document.getElementById('anlTrend');
+  const trendSubEl = document.getElementById('anlTrendSub');
+  if(trendEl) trendEl.textContent = (trendDiff>=0?'↑':'↓') + Math.abs(Math.round(trendDiff))+'건';
+  if(trendEl) trendEl.style.color = trendDiff>=0?'var(--complete)':'var(--reject)';
+  if(trendSubEl) trendSubEl.textContent = `최근 vs 이전 ${trendPct>=0?'+':''}${trendPct.toFixed(1)}%`;
+
+  // ── 종합 추천 ──
+  const recEl = document.getElementById('anlRecommend');
+  const exceedRate = avgComplete / (target1*setCount); // 현재 세트 대비 달성률
+  let recClass, recIcon, recTitle, recDesc;
+  if (exceedRate >= 1.15 && trendDiff >= 0) {
+    recClass='up'; recIcon='🚀';
+    recTitle=`세트 추가 추천 (현재 ${setCount}세트 → ${setCount+1}세트)`;
+    recDesc=`일평균 ${Math.round(avgComplete)}건으로 현재 목표를 ${Math.round((exceedRate-1)*100)}% 초과 달성 중.\n수행량이 꾸준히 늘고 있어 세트 추가가 유리합니다.`;
+  } else if (exceedRate < 0.80 || (exceedRate < 0.90 && trendDiff < 0)) {
+    recClass='down'; recIcon='⚠️';
+    recTitle=`현재 세트 재검토 필요`;
+    recDesc=`일평균 ${Math.round(avgComplete)}건으로 목표 대비 ${Math.round(exceedRate*100)}% 수준.\n${trendDiff<0?'수행량이 감소 추세입니다. ':''}세트 수 조정을 고려해보세요.`;
+  } else {
+    recClass='hold'; recIcon='✅';
+    recTitle=`현재 세트 유지 권장 (${setCount}세트)`;
+    recDesc=`일평균 ${Math.round(avgComplete)}건으로 안정적인 수행 중 (목표 대비 ${Math.round(exceedRate*100)}%).\n현재 페이스를 유지하세요.`;
+  }
+  if(recEl) { recEl.className='anl-recommend '+recClass; }
+  setText('anlRecIcon', recIcon);
+  setText('anlRecTitle', recTitle);
+  setText('anlRecDesc', recDesc);
+
+  // ── 시간대별 달성률 ──
+  const slotList = document.getElementById('anlSlotList');
+  if(slotList) slotList.innerHTML = slots.map(s => {
+    let achieved=0, totalSlotDays=0, totalActual=0, totalGoal=0;
+    recent.forEach(r => {
+      const dow=new Date(r.date+'T12:00:00+09:00').getUTCDay();
+      const hdow=isHoliday(r.date)?6:dow;
+      const g=GOALS[hdow][s]*setCount;
+      totalActual+=r[s]; totalGoal+=g; totalSlotDays++;
+      if(r[s]>=g) achieved++;
+    });
+    const pct = totalGoal>0?totalActual/totalGoal*100:0;
+    const achieveD = totalSlotDays>0?achieved/totalSlotDays*100:0;
+    const cls = pct>=100?'good':pct>=80?'warn':'bad';
+    return `<div class="anl-slot-row">
+      <div class="anl-slot-top">
+        <div class="anl-slot-name" style="color:${slotColors[s]}">${slotNames[s]}</div>
+        <div class="anl-slot-pct ${cls}">${pct.toFixed(1)}%</div>
+      </div>
+      <div class="anl-slot-bar-bg">
+        <div class="anl-slot-bar-fill ${cls}" style="width:${Math.min(pct,100)}%"></div>
+      </div>
+      <div class="anl-slot-detail">평균 ${Math.round(totalActual/totalSlotDays)}건 / 목표 ${Math.round(totalGoal/totalSlotDays)}건 · 달성일 ${achieved}/${totalSlotDays}일 (${Math.round(achieveD)}%)</div>
+    </div>`;
+  }).join('');
+
+  // ── 요일별 패턴 ──
+  const dowData = Array(7).fill(null).map(()=>({sum:0,cnt:0}));
+  recent.forEach(r => {
+    const dow=new Date(r.date+'T12:00:00+09:00').getUTCDay();
+    dowData[dow].sum+=r.complete; dowData[dow].cnt++;
+  });
+  const maxDow = Math.max(...dowData.map(d=>d.cnt>0?d.sum/d.cnt:0), 1);
+  const dowGrid = document.getElementById('anlDowGrid');
+  if(dowGrid) dowGrid.innerHTML = DOW_KR.map((label,i) => {
+    const avg = dowData[i].cnt>0 ? dowData[i].sum/dowData[i].cnt : 0;
+    const pct = Math.round(avg/maxDow*100);
+    const dayTarget = Object.values(GOALS[i]).reduce((a,b)=>a+b,0)*setCount/4;
+    const rate = dayTarget>0?avg/dayTarget*100:0;
+    const col = rate>=100?'var(--complete)':rate>=80?'var(--accent)':'var(--reject)';
+    return `<div class="anl-dow-card">
+      <div class="anl-dow-label">${label}</div>
+      <div class="anl-dow-val" style="color:${col}">${dowData[i].cnt>0?Math.round(avg):'–'}</div>
+      <div class="anl-dow-bar"><div class="anl-dow-bar-fill" style="width:${pct}%;background:${col}"></div></div>
+      <div class="anl-dow-rate">${dowData[i].cnt>0?Math.round(rate)+'%':'–'}</div>
+    </div>`;
+  }).join('');
+
+  // ── 최근 14일 바 차트 ──
+  const maxVal = Math.max(...recent.map(r=>r.complete), 1);
+  const chart = document.getElementById('anlChart');
+  if(chart) chart.innerHTML = recent.map(r => {
+    const dow=new Date(r.date+'T12:00:00+09:00').getUTCDay();
+    const hdow=isHoliday(r.date)?6:dow;
+    const dayGoal=Object.values(GOALS[hdow]).reduce((a,b)=>a+b,0)*setCount/4;
+    const h = Math.round(r.complete/maxVal*72);
+    const col = r.complete>=dayGoal?'var(--complete)':r.complete>=dayGoal*0.8?'var(--accent)':'var(--reject)';
+    return `<div class="anl-bar-wrap">
+      <div class="anl-bar" style="height:${h}px;background:${col}">
+        <div class="atip">${r.date.slice(5)} (${DOW_KR[dow]})<br>${r.complete}건</div>
+      </div>
+      <div class="anl-bar-label">${r.date.slice(5).replace('-','/')}</div>
+    </div>`;
+  }).join('');
+
+  // ── 세트별 여유 분석 ──
+  const setAnalysis = document.getElementById('anlSetAnalysis');
+  if(setAnalysis) {
+    const scenarios = [1,2,3].map(n => {
+      const nTarget = 750*n/7; // 하루 평균 목표
+      const surplus = avgComplete - nTarget;
+      const canAchieve = avgComplete >= nTarget*0.95;
+      return {n, nTarget: Math.round(nTarget), surplus: Math.round(surplus), canAchieve,
+              rate: Math.round(avgComplete/nTarget*100)};
+    });
+    setAnalysis.innerHTML = scenarios.map(sc => {
+      const col = sc.canAchieve?'var(--complete)':sc.rate>=80?'var(--accent)':'var(--reject)';
+      const mark = sc.n===setCount?` <span style="background:var(--accent);color:#000;font-size:9px;padding:1px 5px;border-radius:3px">현재</span>`:'';
+      return `<div class="anl-set-card" style="border-color:${sc.n===setCount?'rgba(255,205,0,.3)':'var(--border)'}">
+        <div class="anl-set-title">${sc.n}세트 (750×${sc.n}=${sc.n*750}건)${mark}</div>
+        <div class="anl-set-rows">
+          <div class="anl-set-row">
+            <span class="anl-set-key">하루 평균 목표</span>
+            <span class="anl-set-val">${sc.nTarget}건</span>
+          </div>
+          <div class="anl-set-row">
+            <span class="anl-set-key">현재 일평균 대비</span>
+            <span class="anl-set-val" style="color:${col}">${sc.rate}%
+              ${sc.surplus>=0?'(+'+sc.surplus+'건 여유)':'('+sc.surplus+'건 부족)'}</span>
+          </div>
+          <div class="anl-set-row">
+            <span class="anl-set-key">달성 가능 여부</span>
+            <span class="anl-set-val" style="color:${col}">${sc.canAchieve?'✓ 달성 가능':'✗ 달성 어려움'}</span>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }
 }
 
 // ── Service Worker 등록 (PWA) ──
