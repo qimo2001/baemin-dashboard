@@ -694,13 +694,9 @@ function renderHome(rows, bizDate) {
   const bizDowLabel=DOW_KR[dow];
   const holiday=isHoliday(bizDate);
 
-  // 세트 기준 현황 — 이번 세트 누적 완료 / setCount×750
-  const {start,end}=getCurrentSetRange();
-  const TARGET=setCount*750;
-  const setComplete=dailyRows.filter(r=>r.date>=start&&r.date<=end).reduce((a,r)=>a+r.complete,0);
   setText('bizDateBadge', holiday
-    ? `🎌 ${bizDate} 공휴일 (토 기준) · 세트 ${setComplete}/${TARGET}건`
-    : `📅 ${bizDate} (${bizDowLabel}) · 세트 ${setComplete}/${TARGET}건`);
+    ? `🎌 ${bizDate} 공휴일 (토 기준) · ${setCount}세트`
+    : `📅 ${bizDate} (${bizDowLabel}) · ${setCount}세트`);
 
   ['morning','afternoon','evening','night'].forEach(slot=>{
     const actual=sum(rows,slot), g=goal[slot]*setCount;
