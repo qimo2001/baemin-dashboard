@@ -822,9 +822,10 @@ function renderSLA(rows) {
     dayDetails.push({date:r.date,dow:new Date(r.date+'T12:00:00+09:00').getUTCDay(),sr,ds});
   });
   const volScaled=maxVol>0?Math.round(volScore/maxVol*60):0;
-  setText('slaVolumeScore',volScaled);
-  setText('slaVolumeSub',`원점수 ${volScore}/${maxVol}점`);
-  setText('slaVolumeDetail',`총: ${rawTotal}건 / 적용: ${capped}건\n목표: ${TARGET}건 (${setCount}세트×750)\n진행: ${setRows.length}/7일`);
+  // 물량점수: 원점수를 크게 표시
+  setText('slaVolumeScore', `${volScore}/${maxVol}`);
+  setText('slaVolumeSub', `60점 환산 → ${volScaled}점`);
+  setText('slaVolumeDetail',`총: ${rawTotal}건 / 목표: ${TARGET}건 (${setCount}세트×750)\n진행: ${setRows.length}/7일`);
 
   const tC=setRows.reduce((a,r)=>a+r.complete,0);
   const tR=setRows.reduce((a,r)=>a+r.reject,0);
@@ -836,21 +837,22 @@ function renderSLA(rows) {
   setText('slaAcceptSub',`수락률 ${aRate.toFixed(1)}% (${aLabel})`);
   setText('slaAcceptDetail',`완료+취소: ${tC+tCan}건\n전체: ${tAll}건`);
 
+  // SLA 총점: 원점수 환산값 + 수락률 점수
   const total=volScaled+aScore;
-  setText('slaTotalScore',total);
-  // 구간 표시 (점수 참고용)
   let range='';
   if(total>=98)range='5구간(98~100점)';
   else if(total>=90)range='4구간(90~98점 미만)';
   else if(total>=85)range='3구간(85~90점 미만)';
   else if(total>=80)range='2구간(80~85점 미만)';
   else range='1구간(0~80점 미만)';
-  setText('slaTotalRange',range);
+  setText('slaTotalScore', total);
+  setText('slaTotalRange', `물량 ${volScaled}점 + 수락률 ${aScore}점 = ${total}점 · ${range}`);
 
-  // 관리비: 300원 × 세트수×750 캡
-  setText('slaFee', `${FEE_PER_UNIT.toLocaleString()}원/건`);
-  const est=FEE_PER_UNIT*capped;
-  setText('slaFeeSub',`${FEE_PER_UNIT}원 × ${capped}건 = ${est.toLocaleString()}원\n(${setCount}세트 기준, 최대 ${TARGET}건)`);
+  // 예상 관리비: 세트수×750 고정값으로 계산 (실 수행건수 무관)
+  const fixedUnits = TARGET; // 1세트=750, 2세트=1500 고정
+  const est = FEE_PER_UNIT * fixedUnits;
+  setText('slaFee', `${est.toLocaleString()}원`);
+  setText('slaFeeSub', `300원 × ${fixedUnits.toLocaleString()}건 (${setCount}세트 기준 고정)`);
 
   // ── 시간대별 달성 상세: 날짜별 × 시간대별 테이블 ──
   const sg=document.getElementById('slaSlotGrid');
