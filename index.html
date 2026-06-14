@@ -703,7 +703,7 @@ function renderHome(rows, bizDate) {
     : `📅 ${bizDate} (${bizDowLabel}) · 세트 ${setComplete}/${TARGET}건`);
 
   ['morning','afternoon','evening','night'].forEach(slot=>{
-    const actual=sum(rows,slot), g=goal[slot];
+    const actual=sum(rows,slot), g=goal[slot]*setCount;
     const pct=g>0?Math.min(Math.round(actual/g*100),999):0;
     const diff=actual-g;
     setText(`val-${slot}`,actual);
