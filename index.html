@@ -780,19 +780,47 @@ function parseCSV(csv) {
   const lines=csv.trim().split('\n'); if(lines.length<2)return[];
   return lines.slice(1).map(l=>{
     const c=splitCSV(l); const raw=c[0]?.replace(/"/g,'').trim(); if(!raw)return null;
+    // 합계 시트 컬럼: 갱신시간(0) | 완료_푸드(1) | 완료_비마트(2) | 완료_배민스토어(3) | 완료_합계(4)
+    //                 | 거절(5) | 배차취소(6) | 배달취소(라이더귀책)(7)
+    //                 | 아침점심피크(8) | 오후논피크(9) | 저녁피크(10) | 심야논피크(11)
     return{date:raw.slice(0,10),datetime:raw,
-      complete:toN(c[1]),reject:toN(c[2]),cancel:toN(c[3]),rider:toN(c[4]),
-      morning:toN(c[5]),afternoon:toN(c[6]),evening:toN(c[7]),night:toN(c[8])};
+      completeFood:  toN(c[1]),  // 완료_푸드
+      completeMart:  toN(c[2]),  // 완료_비마트
+      completeStore: toN(c[3]),  // 완료_배민스토어
+      complete:      toN(c[4]),  // 완료_합계
+      reject:  toN(c[5]),
+      cancel:  toN(c[6]),
+      rider:   toN(c[7]),
+      morning: toN(c[8]),
+      afternoon:toN(c[9]),
+      evening: toN(c[10]),
+      night:   toN(c[11])};
   }).filter(Boolean).sort((a,b)=>a.datetime.localeCompare(b.datetime));
 }
 function parseRiderCSV(csv) {
   const lines=csv.trim().split('\n'); if(lines.length<2)return[];
   return lines.slice(1).map(l=>{
     const c=splitCSV(l); if(!c[1])return null;
-    return{datetime:c[0]?.replace(/"/g,'').trim(),name:c[1]?.replace(/"/g,'').trim(),
-      status:c[2]?.replace(/"/g,'').trim(),phone:c[3]?.replace(/"/g,'').trim(),
-      complete:toN(c[4]),reject:toN(c[5]),cancel:toN(c[6]),rider:toN(c[7]),
-      morning:toN(c[8]),afternoon:toN(c[9]),evening:toN(c[10]),night:toN(c[11])};
+    return{
+      datetime:  c[0]?.replace(/"/g,'').trim(),
+      name:      c[1]?.replace(/"/g,'').trim(),
+      status:    c[2]?.replace(/"/g,'').trim(),
+      phone:     c[3]?.replace(/"/g,'').trim(),
+      // 완료 세부
+      completeFood:  toN(c[4]),  // 완료_푸드
+      completeMart:  toN(c[5]),  // 완료_비마트
+      completeStore: toN(c[6]),  // 완료_배민스토어
+      complete:      toN(c[7]),  // 완료_합계
+      // 거절/취소
+      reject:    toN(c[8]),   // 거절_푸드
+      cancel:    toN(c[9]),   // 배차취소
+      rider:     toN(c[10]),  // 배달취소(라이더귀책)
+      // 시간대별
+      morning:   toN(c[11]),
+      afternoon: toN(c[12]),
+      evening:   toN(c[13]),
+      night:     toN(c[14]),
+    };
   }).filter(Boolean);
 }
 function parseDailyCSV(csv) {
@@ -850,12 +878,13 @@ function setText(id,v){const el=document.getElementById(id);if(el)el.textContent
 function renderHome(rows, bizDate) {
   const complete=sum(rows,'complete'), reject=sum(rows,'reject');
   const cancel=sum(rows,'cancel'), rider=sum(rows,'rider');
-  const denom=complete+reject+cancel+rider;
-  const rate=denom>0?(complete/denom*100):0;
+  const foodComplete = sum(rows,'completeFood') || complete; // 푸드 완료 없으면 합계로 폴백
+  const denom=foodComplete+reject+cancel+rider;
+  const rate=denom>0?(foodComplete/denom*100):0;
   setText('valComplete',complete); setText('valReject',reject);
   setText('valCancel',cancel); setText('valRider',rider);
   setText('valAccept',rate.toFixed(1)+'%');
-  setText('valAcceptSub',`푸드완료 ${complete} / 추천 ${denom}`);
+  setText('valAcceptSub',`푸드완료 ${foodComplete} / 추천 ${denom}`);
 
   const dow=new Date(bizDate+'T12:00:00+09:00').getUTCDay();
   const isWE=(dow===0||dow===6);
@@ -940,8 +969,9 @@ function renderRiderCards(rows) {
   if(!rows.length){el.innerHTML='<div style="text-align:center;color:var(--text-muted);padding:40px 0">라이더 없음</div>';return;}
   el.innerHTML=rows.map(r=>{
     const isRun=r.status==='운행중'||r.status==='운행 중';
-    const denom=r.complete+r.reject+r.cancel+r.rider;
-    const rate=denom>0?(r.complete/denom*100):0;
+    const foodComplete = r.completeFood ?? r.complete;
+    const denom=foodComplete+r.reject+r.cancel+r.rider;
+    const rate=denom>0?(foodComplete/denom*100):0;
     const ratePct=Math.min(rate,100);
     return `<div class="rider-card">
       <div class="rider-card-top">
@@ -950,13 +980,19 @@ function renderRiderCards(rows) {
       </div>
       <div class="rider-phone">${r.phone}</div>
       <div class="rider-stats">
-        <div class="rider-stat"><div class="rider-stat-label">완료</div><div class="rider-stat-val c">${r.complete}</div></div>
+        <div class="rider-stat"><div class="rider-stat-label">완료(합계)</div><div class="rider-stat-val c">${r.complete}</div></div>
+        <div class="rider-stat"><div class="rider-stat-label">푸드</div><div class="rider-stat-val c">${r.completeFood??0}</div></div>
+        <div class="rider-stat"><div class="rider-stat-label">비마트</div><div class="rider-stat-val" style="color:var(--afternoon)">${r.completeMart??0}</div></div>
+        <div class="rider-stat"><div class="rider-stat-label">배민스토어</div><div class="rider-stat-val" style="color:var(--night)">${r.completeStore??0}</div></div>
+      </div>
+      <div class="rider-stats" style="margin-top:6px">
         <div class="rider-stat"><div class="rider-stat-label">거절</div><div class="rider-stat-val r">${r.reject}</div></div>
         <div class="rider-stat"><div class="rider-stat-label">배차취소</div><div class="rider-stat-val ca">${r.cancel}</div></div>
         <div class="rider-stat"><div class="rider-stat-label">귀책</div><div class="rider-stat-val ri">${r.rider}</div></div>
+        <div class="rider-stat"><div class="rider-stat-label">수락률</div><div class="rider-stat-val ac">${rate.toFixed(1)}%</div></div>
       </div>
       <div class="accept-rate-bar"><div class="accept-rate-fill" style="width:${ratePct}%"></div></div>
-      <div class="accept-rate-txt">수락률 ${rate.toFixed(1)}%</div>
+      <div class="accept-rate-txt">수락률 ${rate.toFixed(1)}% (푸드완료 ${foodComplete} / 추천 ${denom})</div>
       <div class="rider-time-grid" style="margin-top:8px">
         <div class="rider-time"><div class="rider-time-label">아침점심</div><div class="rider-time-val mo">${r.morning}</div></div>
         <div class="rider-time"><div class="rider-time-label">오후논피크</div><div class="rider-time-val af">${r.afternoon}</div></div>
