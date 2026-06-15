@@ -751,9 +751,96 @@ function getGoal(d) {
 // ── 데이터 ──
 let allRows=[], riderRows=[], dailyRows=[];
 
+// ── 알림 권한 요청 ──
+async function requestNotificationPermission() {
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'default') {
+    await Notification.requestPermission();
+  }
+}
+
+// ── 달성 알림 상태 (오늘 날짜 + 시간대 기준으로 중복 방지) ──
+let _notifiedSlots = {};
+let _notifiedBizDate = '';
+
+function checkAndNotify(rows, bizDate, goal) {
+  // 날짜가 바뀌면(06:00 리셋) 알림 기록 초기화
+  if (_notifiedBizDate !== bizDate) {
+    _notifiedSlots = {};
+    _notifiedBizDate = bizDate;
+  }
+
+  const slots = [
+    { key: 'morning',   name: '아침점심피크', icon: '🌅' },
+    { key: 'afternoon', name: '오후논피크',   icon: '☀️' },
+    { key: 'evening',   name: '저녁피크',     icon: '🌆' },
+    { key: 'night',     name: '심야논피크',   icon: '🌙' },
+  ];
+
+  slots.forEach(({ key, name, icon }) => {
+    const actual = sum(rows, key);
+    const target = goal[key] * setCount;
+    const achieved = actual >= target && target > 0;
+
+    // 이미 알림 보낸 슬롯은 스킵
+    if (_notifiedSlots[key]) return;
+
+    if (achieved) {
+      _notifiedSlots[key] = true;
+      sendAchieveAlert(icon, name, actual, target);
+    }
+  });
+}
+
+function sendAchieveAlert(icon, slotName, actual, target) {
+  // 진동 (모바일)
+  if ('vibrate' in navigator) {
+    navigator.vibrate([200, 100, 200, 100, 400]);
+  }
+
+  // 브라우저 알림
+  if (Notification.permission === 'granted') {
+    new Notification(`${icon} DS배민현황 목표 달성!`, {
+      body: `${slotName} 목표 달성 🎉\n${actual}건 / 목표 ${target}건`,
+      icon: './icons/icon-192.png',
+      badge: './icons/icon-72.png',
+      tag: `baemin-${slotName}`,
+      vibrate: [200, 100, 200],
+    });
+  }
+
+  // 인앱 토스트 (알림 권한 없어도 표시)
+  showToast(`${icon} ${slotName} 목표 달성! ${actual}/${target}건`);
+}
+
+function showToast(msg) {
+  let toast = document.getElementById('achieveToast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'achieveToast';
+    toast.style.cssText = `
+      position:fixed;top:60px;left:50%;transform:translateX(-50%) translateY(-20px);
+      background:rgba(34,211,160,.95);color:#000;
+      padding:12px 20px;border-radius:10px;font-size:14px;font-weight:700;
+      z-index:9999;opacity:0;transition:all .3s;white-space:nowrap;
+      box-shadow:0 4px 20px rgba(34,211,160,.4);font-family:'Noto Sans KR',sans-serif;
+    `;
+    document.body.appendChild(toast);
+  }
+  toast.textContent = msg;
+  toast.style.opacity = '1';
+  toast.style.transform = 'translateX(-50%) translateY(0)';
+  clearTimeout(toast._timer);
+  toast._timer = setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateX(-50%) translateY(-20px)';
+  }, 4000);
+}
+
 window.addEventListener('DOMContentLoaded', async () => {
   initSetCount();
   await fetchHolidays();
+  await requestNotificationPermission(); // 알림 권한 요청
   loadData();
   setInterval(loadData, 10000);
 });
@@ -878,13 +965,14 @@ function setText(id,v){const el=document.getElementById(id);if(el)el.textContent
 function renderHome(rows, bizDate) {
   const complete=sum(rows,'complete'), reject=sum(rows,'reject');
   const cancel=sum(rows,'cancel'), rider=sum(rows,'rider');
-  const foodComplete = sum(rows,'completeFood') || complete; // 푸드 완료 없으면 합계로 폴백
+  const totalFood = sum(rows,'completeFood');
+  const foodComplete = (totalFood > 0) ? totalFood : complete;
   const denom=foodComplete+reject+cancel+rider;
   const rate=denom>0?(foodComplete/denom*100):0;
   setText('valComplete',complete); setText('valReject',reject);
   setText('valCancel',cancel); setText('valRider',rider);
   setText('valAccept',rate.toFixed(1)+'%');
-  setText('valAcceptSub',`푸드완료 ${foodComplete} / 추천 ${denom}`);
+  setText('valAcceptSub',`${totalFood>0?'푸드':'합계'} ${foodComplete} / 추천 ${denom}`);
 
   const dow=new Date(bizDate+'T12:00:00+09:00').getUTCDay();
   const isWE=(dow===0||dow===6);
@@ -917,6 +1005,9 @@ function renderHome(rows, bizDate) {
       ? `🎌 공휴일 → 토요일 기준`
       : `${bizDate} (${bizDowLabel}) · 06:00 리셋`);
   });
+
+  // 달성 알림 체크
+  checkAndNotify(rows, bizDate, goal);
 }
 
 // ── 라이더 렌더 ──
@@ -969,7 +1060,8 @@ function renderRiderCards(rows) {
   if(!rows.length){el.innerHTML='<div style="text-align:center;color:var(--text-muted);padding:40px 0">라이더 없음</div>';return;}
   el.innerHTML=rows.map(r=>{
     const isRun=r.status==='운행중'||r.status==='운행 중';
-    const foodComplete = r.completeFood ?? r.complete;
+    // 푸드 완료가 있으면 푸드 기준, 없으면 합계 기준으로 수락률 계산
+    const foodComplete = (r.completeFood > 0) ? r.completeFood : r.complete;
     const denom=foodComplete+r.reject+r.cancel+r.rider;
     const rate=denom>0?(foodComplete/denom*100):0;
     const ratePct=Math.min(rate,100);
