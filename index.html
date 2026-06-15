@@ -799,7 +799,10 @@ function parseDailyCSV(csv) {
   const lines=csv.trim().split('\n'); if(lines.length<2)return[];
   return lines.slice(1).map(l=>{
     const c=splitCSV(l); const dr=c[1]?.replace(/"/g,'').trim(); if(!dr)return null;
-    return{date:normDate(dr),complete:toN(c[5]),reject:toN(c[6]),
+    return{date:normDate(dr),
+      completeFood:toN(c[2]),   // 완료_푸드(C) — 수락률 계산용
+      complete:toN(c[5]),       // 완료_합계(F) — 물량/SLA용
+      reject:toN(c[6]),
       cancel:toN(c[7]),rider:toN(c[8]),morning:toN(c[9]),
       afternoon:toN(c[10]),evening:toN(c[11]),night:toN(c[12])};
   }).filter(Boolean);
@@ -852,7 +855,7 @@ function renderHome(rows, bizDate) {
   setText('valComplete',complete); setText('valReject',reject);
   setText('valCancel',cancel); setText('valRider',rider);
   setText('valAccept',rate.toFixed(1)+'%');
-  setText('valAcceptSub',`완료 ${complete} / 추천 ${denom}`);
+  setText('valAcceptSub',`푸드완료 ${complete} / 추천 ${denom}`);
 
   const dow=new Date(bizDate+'T12:00:00+09:00').getUTCDay();
   const isWE=(dow===0||dow===6);
@@ -1024,13 +1027,14 @@ function renderSLA(rows) {
   setText('slaVolumeSub', `60점 환산 → ${volScaled}점`);
   setText('slaVolumeDetail',`총: ${rawTotal}건 / 목표: ${TARGET}건 (${setCount}세트×750)\n진행: ${setRows.length}/7일`);
 
-  // 일별 수락률 계산 함수
+  // 일별 수락률: 푸드 완료건 / (푸드완료 + 거절 + 배차취소 + 라이더귀책)
   function dailyAcceptRate(r) {
-    const denom = r.complete + r.reject + r.cancel + r.rider;
-    return denom > 0 ? (r.complete / denom * 100) : null;
+    const food = r.completeFood ?? r.complete; // 푸드 완료 없으면 전체 완료로 폴백
+    const denom = food + r.reject + r.cancel + r.rider;
+    return denom > 0 ? (food / denom * 100) : null;
   }
 
-  // 주간 수락률 = 데이터 있는 날의 일별 수락률 합 / 데이터 있는 날수
+  // 주간 수락률 = 데이터 있는 날의 일별 수락률 평균
   const dailyRates = setRows.map(r => dailyAcceptRate(r)).filter(v => v !== null);
   const weeklyRate = dailyRates.length > 0
     ? dailyRates.reduce((a, b) => a + b, 0) / dailyRates.length
@@ -1072,8 +1076,9 @@ function renderSLA(rows) {
   // 날짜별로 4개 시간대를 한 카드에 표시
   sg.innerHTML = dayDetails.map(d => {
     const row = setRows.find(r => r.date === d.date);
-    const denom = row ? row.complete + row.reject + row.cancel + row.rider : 0;
-    const rate = denom > 0 ? (row.complete / denom * 100).toFixed(1) : '–';
+    const food = row ? (row.completeFood ?? row.complete) : 0;
+    const denom = row ? food + row.reject + row.cancel + row.rider : 0;
+    const rate = denom > 0 ? (food / denom * 100).toFixed(1) : '–';
     const holiday=isHoliday(d.date);
     const dow=DOW_KR[d.dow];
     const dateLabel=d.date.slice(5);
@@ -1092,7 +1097,7 @@ function renderSLA(rows) {
         <span style="color:var(--accent);font-family:'JetBrains Mono',monospace;font-size:11px">${d.ds}pt</span>
       </div>
       <div style="font-size:10px;color:#38bdf8;font-family:'JetBrains Mono',monospace;margin-bottom:6px">
-        수락률 ${rate}% · 완료 ${row?.complete||0} / 전체 ${denom}
+        수락률 ${rate}% · 푸드완료 ${food} / 전체 ${denom}
       </div>
       <div>${slotRows}</div>
     </div>`;
@@ -1143,10 +1148,11 @@ function renderAnalysis(rows) {
   });
   const achieveRate = totalDays > 0 ? totalAchieveDays/totalDays*100 : 0;
 
-  // ── 평균 수락률 ──
+  // ── 평균 수락률 (푸드 완료건 기준) ──
   const dailyRates14 = recent.map(r=>{
-    const d=r.complete+r.reject+r.cancel+r.rider;
-    return d>0?r.complete/d*100:null;
+    const food = r.completeFood ?? r.complete;
+    const d=food+r.reject+r.cancel+r.rider;
+    return d>0?food/d*100:null;
   }).filter(v=>v!==null);
   const avgAccept = dailyRates14.length>0 ? dailyRates14.reduce((a,b)=>a+b,0)/dailyRates14.length : 0;
 
