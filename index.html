@@ -198,6 +198,20 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .set-info{font-size:11px;color:var(--text-muted);margin-top:8px}
 .set-info strong{color:var(--accent)}
 
+/* 알림 토글 */
+.notify-toggle-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.notify-toggle-label{flex:1}
+.notify-toggle-name{font-size:13px;font-weight:600;margin-bottom:2px}
+.notify-toggle-desc{font-size:10px;color:var(--text-muted)}
+.switch{position:relative;display:inline-block;width:46px;height:26px;flex-shrink:0}
+.switch input{opacity:0;width:0;height:0}
+.slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;
+  background:var(--border);border-radius:26px;transition:.3s}
+.slider:before{position:absolute;content:"";height:20px;width:20px;left:3px;bottom:3px;
+  background:var(--text-muted);border-radius:50%;transition:.3s}
+.switch input:checked + .slider{background:var(--complete)}
+.switch input:checked + .slider:before{background:#fff;transform:translateX(20px)}
+
 .sla-period-bar{background:var(--surface2);border:1px solid var(--border);border-radius:8px;
   padding:10px 12px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between}
 .sla-period-label{font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em}
@@ -497,6 +511,21 @@ footer{text-align:center;padding:10px;color:var(--text-muted);font-size:10px;
       <div class="set-info" id="setInfo">1세트 = 목표 <strong>750건</strong></div>
     </div>
 
+    <!-- 알림 ON/OFF -->
+    <div class="set-config-bar">
+      <div class="set-config-title">🔔 알림 설정</div>
+      <div class="notify-toggle-row">
+        <div class="notify-toggle-label">
+          <div class="notify-toggle-name">목표 달성 알림</div>
+          <div class="notify-toggle-desc">시작 / 중간 달성 / 목표 달성 시 알림 발송</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="notifyToggle" onchange="toggleNotify()" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+
     <!-- 세트 기간 -->
     <div class="sla-period-bar">
       <div class="sla-period-label">📅 이번 세트 기간</div>
@@ -652,6 +681,7 @@ let setCount = parseInt(localStorage.getItem('setCount') || '1');
 function initSetCount() {
   document.getElementById('setCountInput').value = setCount;
   updateSetInfo();
+  syncSetCountToServer(); // 앱 시작 시 GAS에도 현재 세트수 동기화
 }
 function saveSetCount() {
   const v = parseInt(document.getElementById('setCountInput').value) || 1;
@@ -659,6 +689,22 @@ function saveSetCount() {
   localStorage.setItem('setCount', setCount);
   updateSetInfo();
   renderSLA(dailyRows);
+  syncSetCountToServer(); // GAS에도 세트수 동기화
+}
+
+// ── 세트 수를 GAS(Script Properties)에 동기화 ──
+async function syncSetCountToServer() {
+  try {
+    await fetch(WEBAPP_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ type: 'set_count', setCount: setCount }),
+      mode: 'no-cors',
+    });
+    console.log('세트 수 서버 동기화 완료:', setCount);
+  } catch (e) {
+    console.warn('세트 수 동기화 실패:', e);
+  }
 }
 function updateSetInfo() {
   const target = setCount * 750;
@@ -882,10 +928,45 @@ function showToast(msg) {
 window.addEventListener('DOMContentLoaded', async () => {
   initSetCount();
   await fetchHolidays();
-  await requestNotificationPermission(); // 알림 권한 요청
+  initNotifyToggle();
   loadData();
   setInterval(loadData, 10000);
 });
+
+// ── 알림 ON/OFF ──
+function initNotifyToggle() {
+  const enabled = localStorage.getItem('notifyEnabled') !== 'false'; // 기본 ON
+  const toggle = document.getElementById('notifyToggle');
+  if (toggle) toggle.checked = enabled;
+  if (enabled) {
+    requestNotificationPermission();
+  }
+}
+
+async function toggleNotify() {
+  const toggle = document.getElementById('notifyToggle');
+  const enabled = toggle.checked;
+  localStorage.setItem('notifyEnabled', enabled);
+
+  if (enabled) {
+    await requestNotificationPermission();
+    showToast('🔔 알림이 켜졌습니다');
+  } else {
+    // 서버에 알림 끔 요청 (토큰 비활성화)
+    const token = localStorage.getItem('fcmToken');
+    if (token) {
+      try {
+        await fetch(WEBAPP_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain' },
+          body: JSON.stringify({ type: 'fcm_token_disable', token: token }),
+          mode: 'no-cors',
+        });
+      } catch (e) { console.warn('알림 끄기 요청 실패:', e); }
+    }
+    showToast('🔕 알림이 꺼졌습니다');
+  }
+}
 
 async function loadData() {
   const btn = document.getElementById('refreshBtn') || {};
