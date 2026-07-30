@@ -16,7 +16,10 @@
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-messaging-compat.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=JetBrains+Mono:wght@400;700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=JetBrains+Mono:wght@400;700&display=swap"></noscript>
 <style>
 :root{
   --bg:#0a0a0f;--surface:#13131a;--surface2:#1c1c28;--border:#2a2a3d;
@@ -744,41 +747,19 @@ const DOW_KR = ['일','월','화','수','목','금','토'];
 // ── 공휴일 ──
 let holidaySet = new Set();
 
-async function fetchHolidays() {
-  const KEY = 'af50eae8b52a95bbfb85c1eaf00d63095730bcf9085e33e974dfd7724a7181e4';
-  const now = nowKST();
-  const year = now.getUTCFullYear();
-  // 올해 + 내년 공휴일 모두 로드
-  await Promise.all([year, year+1].map(y => fetchHolidayYear(KEY, y)));
-}
-
-async function fetchHolidayYear(KEY, year) {
-  try {
-    // 월별로 12개 호출 (API가 월 단위)
-    const months = Array.from({length:12},(_,i)=>String(i+1).padStart(2,'0'));
-    await Promise.all(months.map(async month => {
-      const url = `https://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getRestDeInfo`
-        + `?serviceKey=${KEY}&solYear=${year}&solMonth=${month}&numOfRows=50&_type=json`;
-      const res = await fetch(url);
-      if (!res.ok) return;
-      const json = await res.json();
-      const items = json?.response?.body?.items?.item;
-      if (!items) return;
-      const list = Array.isArray(items) ? items : [items];
-      list.forEach(item => {
-        if (item.isHoliday !== 'Y') return; // 휴일인 것만
-        const d = String(item.locdate);
-        holidaySet.add(`${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}`);
-      });
-    }));
-  } catch(e) {
-    // CORS 막힐 경우 olaf.kr 백업 API 사용
-    console.warn(`공공API 오류(${year}), 백업 사용:`, e);
-    await fetchHolidaysFallback();
+// localStorage 월별 캐시 → 재방문 시 API 호출 없음
+async function fetchHolidaysWithCache() {
+  const kst = nowKST();
+  const cacheKey = 'holidayCache_' + kst.toISOString().slice(0,7); // YYYY-MM
+  const cached = localStorage.getItem(cacheKey);
+  if (cached) {
+    try {
+      JSON.parse(cached).forEach(d => holidaySet.add(d));
+      console.log('공휴일 캐시 히트');
+      return;
+    } catch(e) {}
   }
-}
-
-async function fetchHolidaysFallback() {
+  // 캐시 없으면 API 1회 호출 (olaf.kr - CORS 없음, 단일 요청)
   try {
     const res = await fetch('https://api.olaf.kr/holidays');
     const json = await res.json();
@@ -788,7 +769,12 @@ async function fetchHolidaysFallback() {
         holidaySet.add(d.toISOString().slice(0,10));
       }
     });
-  } catch(e2) { console.warn('백업 공휴일 API도 실패:', e2); }
+    // 결과 캐시 저장 (이번 달 내 재방문 시 재호출 없음)
+    localStorage.setItem(cacheKey, JSON.stringify([...holidaySet]));
+    console.log('공휴일 API 호출 완료:', holidaySet.size, '일');
+  } catch(e) {
+    console.warn('공휴일 API 오류:', e);
+  }
 }
 
 function isHoliday(d) { return holidaySet.has(d); }
@@ -925,11 +911,13 @@ function showToast(msg) {
   }, 4000);
 }
 
-window.addEventListener('DOMContentLoaded', async () => {
+window.addEventListener('DOMContentLoaded', () => {
   initSetCount();
-  await fetchHolidays();
   initNotifyToggle();
-  loadData();
+
+  // 공휴일 로드와 데이터 로드를 병렬로 실행 (기다리지 않음)
+  fetchHolidaysWithCache().then(() => renderAll()); // 공휴일 로드 후 재렌더
+  loadData(); // 즉시 데이터 로드 시작
   setInterval(loadData, 10000);
 });
 
