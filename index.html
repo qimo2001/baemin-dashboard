@@ -409,7 +409,7 @@ footer{text-align:center;padding:10px;color:var(--text-muted);font-size:10px;
           <div class="time-color-bar"></div>
           <div class="time-card-meta">
             <div class="time-card-name">아침점심피크</div>
-            <div class="time-card-hours">06:00–12:59</div>
+            <div class="time-card-hours" id="hours-morning">09:00–12:59</div>
           </div>
           <div class="achieve-badge none" id="badge-morning">–</div>
         </div>
@@ -466,7 +466,7 @@ footer{text-align:center;padding:10px;color:var(--text-muted);font-size:10px;
           <div class="time-color-bar"></div>
           <div class="time-card-meta">
             <div class="time-card-name">심야논피크</div>
-            <div class="time-card-hours">20:00–02:59</div>
+            <div class="time-card-hours">20:00–23:59</div>
           </div>
           <div class="achieve-badge none" id="badge-night">–</div>
         </div>
@@ -724,13 +724,13 @@ const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbzKpboKDPQbCGwS6_bki
 
 // ── 요일별 목표 ──
 const GOALS = {
-  0:{morning:33,afternoon:22,evening:35,night:30},
-  1:{morning:21,afternoon:20,evening:30,night:29},
-  2:{morning:21,afternoon:20,evening:30,night:29},
-  3:{morning:21,afternoon:20,evening:30,night:29},
-  4:{morning:21,afternoon:20,evening:30,night:29},
-  5:{morning:24,afternoon:21,evening:32,night:33},
-  6:{morning:31,afternoon:22,evening:36,night:31},
+  0:{morning:29,afternoon:22,evening:35,night:24}, // 일
+  1:{morning:19,afternoon:18,evening:30,night:23}, // 월
+  2:{morning:19,afternoon:18,evening:30,night:23}, // 화
+  3:{morning:19,afternoon:18,evening:30,night:23}, // 수
+  4:{morning:19,afternoon:18,evening:30,night:23}, // 목
+  5:{morning:21,afternoon:21,evening:32,night:26}, // 금
+  6:{morning:27,afternoon:22,evening:36,night:25}, // 토
 };
 const HOLIDAY_GOAL = GOALS[6];
 const SLOT_POINTS = {
@@ -1118,6 +1118,8 @@ function renderHome(rows, bizDate) {
 
   const dow=new Date(bizDate+'T12:00:00+09:00').getUTCDay();
   const isWE=(dow===0||dow===6);
+  const elMorning=document.getElementById('hours-morning');
+  if(elMorning)elMorning.textContent=isWE?'09:00–13:59':'09:00–12:59';
   const el=document.getElementById('hours-afternoon');
   if(el)el.textContent=isWE?'14:00–16:59':'13:00–16:59';
   const goal=getGoal(bizDate);
