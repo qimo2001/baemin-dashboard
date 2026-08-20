@@ -509,9 +509,9 @@ footer{text-align:center;padding:10px;color:var(--text-muted);font-size:10px;
       <div class="set-config-row">
         <input class="set-input" id="setCountInput" type="number" min="1" max="99" value="1">
         <button class="set-save-btn" onclick="saveSetCount()">저장</button>
-        <span style="font-size:12px;color:var(--text-muted)">세트 (×750건)</span>
+        <span style="font-size:12px;color:var(--text-muted)">세트 (×680건)</span>
       </div>
-      <div class="set-info" id="setInfo">1세트 = 목표 <strong>750건</strong></div>
+      <div class="set-info" id="setInfo">1세트 = 목표 <strong>680건</strong></div>
     </div>
 
     <!-- 알림 ON/OFF -->
@@ -529,10 +529,18 @@ footer{text-align:center;padding:10px;color:var(--text-muted);font-size:10px;
       </div>
     </div>
 
-    <!-- 세트 기간 -->
+    <!-- 세트 기간 선택 -->
     <div class="sla-period-bar">
-      <div class="sla-period-label">📅 이번 세트 기간</div>
-      <div class="sla-period-val" id="slaPeriod">계산 중...</div>
+      <div class="sla-period-label">📅 세트 기간</div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <div class="sla-period-val" id="slaPeriod">계산 중...</div>
+        <select id="setPeriodSelect" onchange="onSetPeriodChange()" style="
+          background:var(--surface2);border:1px solid var(--border);color:var(--text);
+          padding:4px 8px;border-radius:6px;font-size:11px;font-family:'Noto Sans KR',sans-serif;
+          cursor:pointer;outline:none">
+          <option value="0">현재 세트</option>
+        </select>
+      </div>
     </div>
 
     <!-- 총 배달 진행률 -->
@@ -545,23 +553,26 @@ footer{text-align:center;padding:10px;color:var(--text-muted);font-size:10px;
       <div class="sla-bar-pct" id="slaSetPct">0%</div>
     </div>
 
-    <!-- 점수 카드 -->
+    <!-- SLA 달성 현황 카드 -->
     <div class="score-grid">
+      <!-- 물량 달성 -->
       <div class="score-card">
-        <div class="score-title">물량 점수 (60점)</div>
+        <div class="score-title">슬롯 달성 (28개 중)</div>
         <div class="score-val" id="slaVolumeScore">–</div>
         <div class="score-sub" id="slaVolumeSub">–</div>
         <div class="score-detail" id="slaVolumeDetail"></div>
       </div>
+      <!-- 수락률 -->
       <div class="score-card">
-        <div class="score-title">수락률 점수 (40점)</div>
+        <div class="score-title">배차 수락률</div>
         <div class="score-val" id="slaAcceptScore">–</div>
         <div class="score-sub" id="slaAcceptSub">–</div>
         <div class="score-detail" id="slaAcceptDetail"></div>
       </div>
+      <!-- SLA 달성 여부 + 관리비 -->
       <div class="score-card total">
-        <div class="score-title">SLA 총점 (100점)</div>
-        <div class="score-val" id="slaTotalScore">–</div>
+        <div class="score-title">SLA 달성 여부</div>
+        <div class="score-val" id="slaTotalScore" style="font-size:36px">–</div>
         <div class="score-sub" id="slaTotalRange">–</div>
         <div class="fee-box">
           <div class="fee-label">예상 관리비</div>
@@ -710,7 +721,7 @@ async function syncSetCountToServer() {
   }
 }
 function updateSetInfo() {
-  const target = setCount * 750;
+  const target = setCount * SET_UNIT;
   document.getElementById('setInfo').innerHTML =
     `${setCount}세트 = 목표 <strong>${target.toLocaleString()}건</strong>`;
 }
@@ -1248,6 +1259,54 @@ function getCurrentSetRange() {
   const e=new Date(s); e.setUTCDate(e.getUTCDate()+6);
   return{start:s.toISOString().slice(0,10), end:e.toISOString().slice(0,10)};
 }
+// ── SLA 기준 (새 기준) ──
+const SET_UNIT = 680;
+const TOTAL_SLOTS = 28;
+const REQUIRED_SLOTS = 25;
+const ACCEPT_RATE_MIN = 80;
+const FEE_PER_UNIT = 300;
+
+// ── 세트 기간 목록 ──
+function getSetRanges(count) {
+  const ranges = [];
+  const kst = nowKST();
+  const dow = kst.getUTCDay();
+  const diffToWed = (dow - 3 + 7) % 7;
+  const curStart = new Date(kst);
+  curStart.setUTCDate(curStart.getUTCDate() - diffToWed);
+  for (let i = 0; i < count; i++) {
+    const s = new Date(curStart);
+    s.setUTCDate(s.getUTCDate() - i * 7);
+    const e = new Date(s);
+    e.setUTCDate(e.getUTCDate() + 6);
+    ranges.push({
+      start: s.toISOString().slice(0,10),
+      end:   e.toISOString().slice(0,10),
+      label: `${s.toISOString().slice(5,10)}(수) ~ ${e.toISOString().slice(5,10)}(화)`,
+      isCurrent: i === 0,
+    });
+  }
+  return ranges;
+}
+
+let _setRanges = [];
+let _selectedSetIdx = 0;
+function initSetPeriodSelect() {
+  _setRanges = getSetRanges(8);
+  const sel = document.getElementById('setPeriodSelect');
+  if (!sel) return;
+  sel.innerHTML = _setRanges.map((r, i) =>
+    `<option value="${i}">${i===0?'현재 세트':r.label}</option>`
+  ).join('');
+  sel.value = String(_selectedSetIdx);
+}
+function onSetPeriodChange() {
+  const sel = document.getElementById('setPeriodSelect');
+  if (!sel) return;
+  _selectedSetIdx = parseInt(sel.value) || 0;
+  renderSLA(dailyRows);
+}
+
 function getAcceptScore(rate) {
   if(rate>=98)return{score:40,label:'98% 이상'};
   if(rate>=90)return{score:30,label:'90~98% 미만'};
@@ -1256,22 +1315,18 @@ function getAcceptScore(rate) {
   return{score:0,label:'60% 미만'};
 }
 
-// 관리비 고정 300원/건 (SLA 구간 확정 전 임시)
-const FEE_PER_UNIT = 300;
-
 function renderSLA(rows) {
-  const {start,end}=getCurrentSetRange();
+  if (_setRanges.length === 0) initSetPeriodSelect();
+  const range = _setRanges[_selectedSetIdx] || _setRanges[0];
+  const {start, end} = range;
   const sdow=DOW_KR[new Date(start+'T12:00:00+09:00').getUTCDay()];
   const edow=DOW_KR[new Date(end+'T12:00:00+09:00').getUTCDay()];
   setText('slaPeriod',`${start}(${sdow}) ~ ${end}(${edow})`);
 
   const setRows=rows.filter(r=>r.date>=start&&r.date<=end);
-  // 세트수 × 750건이 관리비 지급 상한
-  const TARGET=setCount*750;
+  const TARGET = setCount * SET_UNIT;
 
   const rawTotal=setRows.reduce((a,r)=>a+r.complete,0);
-  // 각 세트(750건)별 캡 → setCount개 세트이므로 최대 TARGET건
-  const capped=Math.min(rawTotal,TARGET);
   setText('slaTotal', rawTotal>TARGET?`${rawTotal}건 (${TARGET}건 적용)`:rawTotal+'건');
   const fill=document.getElementById('slaSetFill');
   if(fill)fill.style.width=Math.min(rawTotal/TARGET*100,100)+'%';
@@ -1279,104 +1334,102 @@ function renderSLA(rows) {
 
   const slots=['morning','afternoon','evening','night'];
   const slotNames={morning:'아침점심',afternoon:'오후논피크',evening:'저녁피크',night:'심야'};
-  let volScore=0, maxVol=0;
+  let achievedSlots=0;
   const dayDetails=[];
   setRows.forEach(r=>{
     const dow=new Date(r.date+'T12:00:00+09:00').getUTCDay();
     const hdow=isHoliday(r.date)?6:dow;
-    const goal=GOALS[hdow], pts=SLOT_POINTS[hdow];
+    const goal=GOALS[hdow];
     let ds=0; const sr={};
     slots.forEach(s=>{
-      const ok=r[s]>=goal[s]; const pt=ok?pts[s]:0;
-      ds+=pt; sr[s]={actual:r[s],goal:goal[s],pt,ok};
+      const target=goal[s]*setCount;
+      const ok=r[s]>=target;
+      if(ok){achievedSlots++;ds++;}
+      sr[s]={actual:r[s],goal:target,ok};
     });
-    volScore+=ds;
-    maxVol+=Object.values(SLOT_POINTS[hdow]).reduce((a,b)=>a+b,0);
     dayDetails.push({date:r.date,dow:new Date(r.date+'T12:00:00+09:00').getUTCDay(),sr,ds});
   });
-  const volScaled=maxVol>0?Math.round(volScore/maxVol*60):0;
-  // 물량점수: 원점수를 크게 표시
-  setText('slaVolumeScore', `${volScore}/${maxVol}`);
-  setText('slaVolumeSub', `60점 환산 → ${volScaled}점`);
-  setText('slaVolumeDetail',`총: ${rawTotal}건 / 목표: ${TARGET}건 (${setCount}세트×750)\n진행: ${setRows.length}/7일`);
 
-  // 일별 수락률: 완료_푸드 / (완료_푸드 + 거절_푸드 + 배차취소_합계 + 배달취소_합계)
+  const slotOk = achievedSlots >= REQUIRED_SLOTS;
+  const slotColor = slotOk ? 'var(--complete)' : 'var(--reject)';
+  const volEl = document.getElementById('slaVolumeScore');
+  if(volEl){volEl.textContent=`${achievedSlots}/${dayDetails.length*4}`;volEl.style.color=slotColor;}
+  setText('slaVolumeSub', slotOk?`✅ ${REQUIRED_SLOTS}개 기준 달성`:`❌ ${REQUIRED_SLOTS}개 기준 미달`);
+  setText('slaVolumeDetail',`총: ${rawTotal}건 / 목표: ${TARGET}건 (${setCount}세트×${SET_UNIT})\n진행: ${setRows.length}/7일`);
+
   function dailyAcceptRate(r) {
     const food = r.completeFood > 0 ? r.completeFood : r.complete;
     const rej  = r.rejectFood  > 0 ? r.rejectFood  : r.reject;
     const denom = food + rej + r.cancel + r.rider;
     return denom > 0 ? (food / denom * 100) : null;
   }
-
-  // 주간 수락률 = 데이터 있는 날의 일별 수락률 평균
   const dailyRates = setRows.map(r => dailyAcceptRate(r)).filter(v => v !== null);
   const weeklyRate = dailyRates.length > 0
-    ? dailyRates.reduce((a, b) => a + b, 0) / dailyRates.length
-    : 0;
-
-  const{score:aScore,label:aLabel}=getAcceptScore(weeklyRate);
-  setText('slaAcceptScore',aScore);
-  setText('slaAcceptSub',`주간 수락률 ${weeklyRate.toFixed(1)}% (${aLabel})`);
+    ? dailyRates.reduce((a, b) => a + b, 0) / dailyRates.length : 0;
+  const acceptOk = weeklyRate >= ACCEPT_RATE_MIN;
+  const acceptColor = acceptOk ? 'var(--complete)' : 'var(--reject)';
+  const accEl = document.getElementById('slaAcceptScore');
+  if(accEl){accEl.textContent=weeklyRate.toFixed(1)+'%';accEl.style.color=acceptColor;}
+  setText('slaAcceptSub', acceptOk?`✅ 80% 기준 달성`:`❌ 80% 기준 미달`);
   const tC=setRows.reduce((a,r)=>a+r.complete,0);
   const tDenom=setRows.reduce((a,r)=>a+r.complete+r.reject+r.cancel+r.rider,0);
-  setText('slaAcceptDetail',`일별 평균 (${dailyRates.length}일 기준)\n완료합계: ${tC}건 / 전체합계: ${tDenom}건`);
+  setText('slaAcceptDetail',`일별 평균 (${dailyRates.length}일 기준)\n완료: ${tC}건 / 전체: ${tDenom}건`);
 
-  // SLA 총점: 원점수 환산값 + 수락률 점수
-  const total=volScaled+aScore;
-  let range='';
-  if(total>=98)range='5구간(98~100점)';
-  else if(total>=90)range='4구간(90~98점 미만)';
-  else if(total>=85)range='3구간(85~90점 미만)';
-  else if(total>=80)range='2구간(80~85점 미만)';
-  else range='1구간(0~80점 미만)';
-  setText('slaTotalScore', total);
-  setText('slaTotalRange', `물량 ${volScaled}점 + 수락률 ${aScore}점 = ${total}점 · ${range}`);
+  const slaOk = slotOk && acceptOk;
+  const totalEl = document.getElementById('slaTotalScore');
+  if(totalEl){totalEl.textContent=slaOk?'달성 ✅':'미달성 ❌';totalEl.style.color=slaOk?'var(--complete)':'var(--reject)';}
+  setText('slaTotalRange',`슬롯 ${achievedSlots}/${dayDetails.length*4}개 · 수락률 ${weeklyRate.toFixed(1)}%`);
 
-  // 예상 관리비: 세트수×750 고정값으로 계산 (실 수행건수 무관)
-  const fixedUnits = TARGET; // 1세트=750, 2세트=1500 고정
-  const est = FEE_PER_UNIT * fixedUnits;
-  setText('slaFee', `${est.toLocaleString()}원`);
-  setText('slaFeeSub', `300원 × ${fixedUnits.toLocaleString()}건 (${setCount}세트 기준 고정)`);
-
-  // ── 시간대별 달성 상세: 날짜별 × 시간대별 테이블 ──
-  const sg=document.getElementById('slaSlotGrid');
-  if(!sg)return;
-
-  if(!dayDetails.length){
-    sg.innerHTML='<div style="color:var(--text-muted);font-size:12px;padding:16px 0;text-align:center">이번 세트 데이터 없음</div>';
-    return;
+  const fixedUnits = TARGET;
+  const feeEl = document.getElementById('slaFee');
+  if(slaOk){
+    if(feeEl){feeEl.textContent=`${(FEE_PER_UNIT*fixedUnits).toLocaleString()}원`;feeEl.style.color='var(--accent)';}
+    setText('slaFeeSub',`${FEE_PER_UNIT}원 × ${fixedUnits.toLocaleString()}건 (${setCount}세트 기준)`);
+  } else {
+    if(feeEl){feeEl.textContent='0원';feeEl.style.color='var(--reject)';}
+    setText('slaFeeSub',`SLA 미달성 → 관리비 미지급\n(슬롯 ${achievedSlots}개 달성, 수락률 ${weeklyRate.toFixed(1)}%)`);
   }
 
-  // 날짜별로 4개 시간대를 한 카드에 표시
+  const sg=document.getElementById('slaSlotGrid');
+  if(!sg)return;
+  if(!dayDetails.length){
+    sg.innerHTML='<div style="color:var(--text-muted);font-size:12px;padding:16px 0;text-align:center">선택한 세트 데이터 없음</div>';
+    return;
+  }
   sg.innerHTML = dayDetails.map(d => {
     const row = setRows.find(r => r.date === d.date);
     const food = row ? (row.completeFood ?? row.complete) : 0;
-    const denom = row ? food + row.reject + row.cancel + row.rider : 0;
+    const rej  = row ? (row.rejectFood ?? row.reject) : 0;
+    const denom = row ? food + rej + row.cancel + row.rider : 0;
     const rate = denom > 0 ? (food / denom * 100).toFixed(1) : '–';
+    const rateOk = denom > 0 && (food / denom * 100) >= ACCEPT_RATE_MIN;
     const holiday=isHoliday(d.date);
     const dow=DOW_KR[d.dow];
     const dateLabel=d.date.slice(5);
-    const slotRows=slots.map(s=>{
+    const slotRowsHtml=slots.map(s=>{
       const r=d.sr[s];
       return `<div class="slot-day-row">
         <span class="slot-dow" style="width:52px;font-size:10px">${slotNames[s]}</span>
         <span class="slot-actual ${r.ok?'slot-ok':'slot-ng'}">${r.actual}</span>
         <span class="slot-goal">/${r.goal}</span>
-        <span class="slot-pt ${r.ok?'ok':'ng'}">${r.pt}pt</span>
+        <span class="slot-pt ${r.ok?'ok':'ng'}">${r.ok?'✓':'✗'}</span>
       </div>`;
     }).join('');
     return `<div class="slot-card">
       <div class="slot-name" style="display:flex;justify-content:space-between;align-items:center">
         <span>${dateLabel} (${dow})${holiday?' 🎌':''}</span>
-        <span style="color:var(--accent);font-family:'JetBrains Mono',monospace;font-size:11px">${d.ds}pt</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:${d.ds===4?'var(--complete)':'var(--accent)'}">
+          ${d.ds}/4슬롯
+        </span>
       </div>
-      <div style="font-size:10px;color:#38bdf8;font-family:'JetBrains Mono',monospace;margin-bottom:6px">
-        수락률 ${rate}% · 푸드완료 ${food} / 전체 ${denom}
+      <div style="font-size:10px;font-family:'JetBrains Mono',monospace;margin-bottom:6px;color:${rateOk?'var(--complete)':'var(--reject)'}">
+        수락률 ${rate}% ${rateOk?'✅':'❌'}
       </div>
-      <div>${slotRows}</div>
+      <div>${slotRowsHtml}</div>
     </div>`;
   }).join('');
 }
+
 
 // ── 분석 탭 렌더 ──
 function renderAnalysis(rows) {
@@ -1542,7 +1595,7 @@ function renderAnalysis(rows) {
   const setAnalysis = document.getElementById('anlSetAnalysis');
   if(setAnalysis) {
     const scenarios = [1,2,3].map(n => {
-      const nTarget = 750*n/7; // 하루 평균 목표
+      const nTarget = SET_UNIT*n/7; // 하루 평균 목표
       const surplus = avgComplete - nTarget;
       const canAchieve = avgComplete >= nTarget*0.95;
       return {n, nTarget: Math.round(nTarget), surplus: Math.round(surplus), canAchieve,
@@ -1552,7 +1605,7 @@ function renderAnalysis(rows) {
       const col = sc.canAchieve?'var(--complete)':sc.rate>=80?'var(--accent)':'var(--reject)';
       const mark = sc.n===setCount?` <span style="background:var(--accent);color:#000;font-size:9px;padding:1px 5px;border-radius:3px">현재</span>`:'';
       return `<div class="anl-set-card" style="border-color:${sc.n===setCount?'rgba(255,205,0,.3)':'var(--border)'}">
-        <div class="anl-set-title">${sc.n}세트 (750×${sc.n}=${sc.n*750}건)${mark}</div>
+        <div class="anl-set-title">${sc.n}세트 (${SET_UNIT}×${sc.n}=${sc.n*SET_UNIT}건)${mark}</div>
         <div class="anl-set-rows">
           <div class="anl-set-row">
             <span class="anl-set-key">하루 평균 목표</span>
