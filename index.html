@@ -168,6 +168,15 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
   font-size:10px;font-weight:600;background:rgba(112,112,160,.1);color:var(--text-muted);
   border:1px solid rgba(112,112,160,.2)}
 .rider-phone{font-size:11px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;margin-bottom:10px}
+
+/* 출퇴근 정보 박스 */
+.attend-box{background:var(--surface2);border:1px solid var(--border);border-radius:8px;
+  padding:8px 10px;margin-bottom:10px;display:flex;flex-direction:column;gap:4px}
+.attend-box.off{opacity:.75;border-style:dashed}
+.attend-item{display:flex;align-items:center;justify-content:space-between;font-size:11px}
+.attend-label{color:var(--text-muted)}
+.attend-val{font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--text)}
+.attend-none{font-size:11px;color:var(--text-muted)}
 .rider-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:8px}
 .rider-stat{background:var(--surface2);border-radius:6px;padding:6px 8px;text-align:center}
 .rider-stat-label{font-size:9px;color:var(--text-muted);margin-bottom:2px}
@@ -967,6 +976,8 @@ async function toggleNotify() {
   }
 }
 
+let attendMap = {}; // 이름|폰 → 출퇴근 기록
+
 async function loadData() {
   const btn = document.getElementById('refreshBtn') || {};
   try {
@@ -978,9 +989,26 @@ async function loadData() {
     document.getElementById('lastUpdated').textContent = new Date().toLocaleTimeString('ko-KR');
     document.getElementById('errorBanner').style.display='none';
     renderAll();
+    loadAttendance(); // 출퇴근 기록은 별도로 비동기 로드
   } catch(e) {
     const el=document.getElementById('errorBanner');
     el.textContent=`⚠ ${e.message}`;el.style.display='block';
+  }
+}
+
+// ── 출퇴근 기록 로드 (GAS API) ──
+async function loadAttendance() {
+  try {
+    const res = await fetch(`${WEBAPP_URL}?action=attendance`);
+    const json = await res.json();
+    attendMap = {};
+    (json.records || []).forEach(r => {
+      const key = r.name + '|' + (r.phone||'').replace(/[^0-9]/g,'');
+      attendMap[key] = r;
+    });
+    renderRiderList(riderRows); // 출퇴근 정보 반영해서 재렌더
+  } catch(e) {
+    console.warn('출퇴근 기록 로드 실패:', e);
   }
 }
 
@@ -1210,6 +1238,64 @@ function filterRiders() {
   const filtered=q?_allRiders.filter(r=>r.name?.toLowerCase().includes(q)||r.phone?.includes(q)):_allRiders;
   renderRiderCards(sortRiders(filtered));
 }
+// ── 출퇴근 정보 렌더 ──
+function renderAttendInfo(r) {
+  const key = r.name + '|' + (r.phone||'').replace(/[^0-9]/g,'');
+  const a = attendMap[key];
+  const hm = t => t ? t.slice(0,5) : null;
+  const md = d => d ? d.slice(5).replace('-','/') : '';
+
+  if (!a) {
+    return `<div class="attend-box off"><span class="attend-none">출퇴근 기록 없음</span></div>`;
+  }
+
+  const firstIn = hm(a.first_in);
+  const lastOut = hm(a.last_out);
+  const lastDel = hm(a.last_delivery);
+  const isRun = r.status==='운행중' || r.status==='운행 중';
+
+  // 오늘 출근한 경우
+  if (firstIn) {
+    return `<div class="attend-box">
+      <div class="attend-item">
+        <span class="attend-label">🟢 첫 출근</span>
+        <span class="attend-val">${firstIn}</span>
+      </div>
+      <div class="attend-item">
+        <span class="attend-label">${isRun?'🔵 운행 상태':'🔴 마지막 퇴근'}</span>
+        <span class="attend-val">${isRun ? '운행중' : (lastOut || '–')}</span>
+      </div>
+      ${lastDel ? `<div class="attend-item">
+        <span class="attend-label">📦 마지막 배달</span>
+        <span class="attend-val">${lastDel}</span>
+      </div>` : ''}
+    </div>`;
+  }
+
+  // 미출근 — 과거 기록 소급 표시
+  const pDel = hm(a.prev_delivery);
+  const pOut = hm(a.prev_out);
+  const hasPrev = pDel || pOut;
+
+  return `<div class="attend-box off">
+    <div class="attend-item">
+      <span class="attend-label">⚪ 오늘 미출근</span>
+      <span class="attend-val" style="color:var(--text-muted)">–</span>
+    </div>
+    ${pDel ? `<div class="attend-item">
+      <span class="attend-label">📦 마지막 배달</span>
+      <span class="attend-val">${md(a.prev_delivery_date)} ${pDel}</span>
+    </div>` : ''}
+    ${pOut ? `<div class="attend-item">
+      <span class="attend-label">🔴 마지막 운행종료</span>
+      <span class="attend-val">${md(a.prev_out_date)} ${pOut}</span>
+    </div>` : ''}
+    ${!hasPrev ? `<div class="attend-item">
+      <span class="attend-none">과거 운행 기록 없음</span>
+    </div>` : ''}
+  </div>`;
+}
+
 function renderRiderCards(rows) {
   const el=document.getElementById('riderList');
   if(!rows.length){el.innerHTML='<div style="text-align:center;color:var(--text-muted);padding:40px 0">라이더 없음</div>';return;}
@@ -1227,6 +1313,7 @@ function renderRiderCards(rows) {
         ${isRun?'<span class="status-running">● 운행중</span>':'<span class="status-stopped">○ 종료</span>'}
       </div>
       <div class="rider-phone">${r.phone}</div>
+      ${renderAttendInfo(r)}
       <div class="rider-stats">
         <div class="rider-stat"><div class="rider-stat-label">완료(합계)</div><div class="rider-stat-val c">${r.complete}</div></div>
         <div class="rider-stat"><div class="rider-stat-label">푸드</div><div class="rider-stat-val c">${r.completeFood??0}</div></div>
