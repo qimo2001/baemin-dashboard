@@ -75,8 +75,8 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
   border:none;background:none;font-family:'Noto Sans KR',sans-serif;
 }
 .nav-item.active{color:var(--accent)}
-.nav-icon{font-size:20px;line-height:1}
-.nav-label{font-size:10px;font-weight:500}
+.nav-icon{font-size:18px;line-height:1}
+.nav-label{font-size:9px;font-weight:500;white-space:nowrap}
 
 /* ── 에러 배너 ── */
 .error-banner{background:rgba(255,68,102,.1);border:1px solid rgba(255,68,102,.3);
@@ -281,6 +281,42 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 
 footer{text-align:center;padding:10px;color:var(--text-muted);font-size:10px;
   font-family:'JetBrains Mono',monospace;border-top:1px solid var(--border)}
+
+/* ── 정산 탭 ── */
+.payout-input-row{display:flex;flex-direction:column;gap:10px}
+.payout-input-group{display:flex;align-items:center;gap:8px}
+.payout-label{font-size:11px;color:var(--text-muted);width:88px;flex-shrink:0}
+.payout-input{background:var(--surface2);border:1px solid var(--border);color:var(--text);
+  width:100px;padding:7px 10px;border-radius:8px;font-size:15px;
+  font-family:'JetBrains Mono',monospace;text-align:right;outline:none}
+.payout-input:focus{border-color:var(--accent)}
+.payout-unit{font-size:11px;color:var(--text-muted)}
+
+.payout-summary{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:4px}
+.payout-sum-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px}
+.payout-sum-card.total{grid-column:span 2;border-color:rgba(255,205,0,.3);background:rgba(255,205,0,.04)}
+.payout-sum-label{font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+.payout-sum-val{font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;color:var(--accent)}
+.payout-sum-card.total .payout-sum-val{font-size:30px}
+.payout-sum-sub{font-size:10px;color:var(--text-muted);margin-top:3px}
+
+.payout-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;
+  padding:14px;margin-bottom:10px}
+.payout-card.dim{opacity:.55;border-style:dashed}
+.payout-amount.none{color:var(--text-muted);font-size:14px}
+.payout-card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.payout-name{font-size:15px;font-weight:700}
+.payout-amount{font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700;color:var(--accent)}
+.payout-meta{display:flex;align-items:center;gap:10px;font-size:11px;
+  color:var(--text-muted);margin-bottom:10px;flex-wrap:wrap}
+.payout-meta strong{color:var(--complete);font-family:'JetBrains Mono',monospace}
+.payout-over{color:var(--accent);font-family:'JetBrains Mono',monospace;font-weight:700}
+.payout-slots{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.payout-slot{background:var(--surface2);border-radius:6px;padding:6px 4px;text-align:center}
+.payout-slot-label{font-size:9px;color:var(--text-muted);margin-bottom:2px}
+.payout-slot-val{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700}
+.payout-slot-val.mo{color:var(--morning)} .payout-slot-val.af{color:var(--afternoon)}
+.payout-slot-val.ev{color:var(--evening)} .payout-slot-val.ni{color:var(--night)}
 
 /* ── 분석 탭 ── */
 .anl-recommend{background:var(--surface);border:1px solid var(--border);border-radius:12px;
@@ -667,6 +703,61 @@ footer{text-align:center;padding:10px;color:var(--text-muted);font-size:10px;
 
   </div>
 
+  <!-- ⑤ 정산 (세트별 기사 완료) -->
+  <div id="page-payout" class="tab-page">
+
+    <div class="section-header">
+      <div class="section-title">💰 세트별 기사 정산</div>
+      <div class="section-badge" id="payoutBadge">–</div>
+    </div>
+
+    <!-- 세트 기간 선택 -->
+    <div class="sla-period-bar">
+      <div class="sla-period-label">📅 세트 기간</div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <div class="sla-period-val" id="payoutPeriod">–</div>
+        <select id="payoutSetSelect" onchange="loadPayout()" style="
+          background:var(--surface2);border:1px solid var(--border);color:var(--text);
+          padding:4px 8px;border-radius:6px;font-size:11px;font-family:'Noto Sans KR',sans-serif;
+          cursor:pointer;outline:none">
+        </select>
+      </div>
+    </div>
+
+    <!-- 정산 조건 입력 -->
+    <div class="set-config-bar">
+      <div class="set-config-title">⚙ 정산 조건</div>
+      <div class="payout-input-row">
+        <div class="payout-input-group">
+          <label class="payout-label">기준 완료 건수</label>
+          <input class="payout-input" id="payoutThreshold" type="number" min="0" value="100" oninput="renderPayout()">
+          <span class="payout-unit">건 초과분부터</span>
+        </div>
+        <div class="payout-input-group">
+          <label class="payout-label">건당 지급액</label>
+          <input class="payout-input" id="payoutRate" type="number" min="0" step="100" value="500" oninput="renderPayout()">
+          <span class="payout-unit">원</span>
+        </div>
+      </div>
+      <div class="set-info" id="payoutInfo">기준을 넘긴 기사만 표시됩니다</div>
+    </div>
+
+    <!-- 요약 -->
+    <div class="payout-summary" id="payoutSummary"></div>
+
+    <!-- 기사 목록 -->
+    <div class="section-header" style="margin-top:14px">
+      <div class="section-title" id="payoutListTitle">대상 기사</div>
+      <div class="section-badge" id="payoutCount">–</div>
+    </div>
+    <div class="sort-bar" style="margin-bottom:12px">
+      <button class="sort-btn active" id="pv-over" onclick="setPayoutView('over')">초과자만</button>
+      <button class="sort-btn" id="pv-all" onclick="setPayoutView('all')">전체 보기</button>
+    </div>
+    <div id="payoutList"></div>
+
+  </div>
+
 </div>
 
 <!-- 하단 네비게이션 -->
@@ -687,6 +778,10 @@ footer{text-align:center;padding:10px;color:var(--text-muted);font-size:10px;
     <div class="nav-icon">📈</div>
     <div class="nav-label">분석</div>
   </button>
+  <button class="nav-item" id="nav-payout" onclick="switchTab('payout')">
+    <div class="nav-icon">💰</div>
+    <div class="nav-label">정산</div>
+  </button>
 </nav>
 
 <script>
@@ -696,6 +791,7 @@ function switchTab(tab) {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.getElementById('page-' + tab).classList.add('active');
   document.getElementById('nav-' + tab).classList.add('active');
+  if (tab === 'payout') initPayoutSelect();
   document.getElementById('tab-content-area')?.scrollTo(0,0);
 }
 
@@ -1711,6 +1807,140 @@ function renderAnalysis(rows) {
       </div>`;
     }).join('');
   }
+}
+
+// ════════════════════════════════════════════════
+// 정산 탭 (세트별 기사 완료)
+// ════════════════════════════════════════════════
+let _payoutData = null;
+let _payoutInitialized = false;
+let _payoutView = 'over';   // 'over' = 초과자만, 'all' = 전체
+
+function setPayoutView(mode) {
+  _payoutView = mode;
+  document.getElementById('pv-over').classList.toggle('active', mode === 'over');
+  document.getElementById('pv-all').classList.toggle('active', mode === 'all');
+  renderPayout();
+}
+
+function initPayoutSelect() {
+  if (_payoutInitialized) return;
+  const ranges = getSetRanges(12);
+  const sel = document.getElementById('payoutSetSelect');
+  if (!sel) return;
+  sel.innerHTML = ranges.map((r, i) =>
+    `<option value="${i}">${i===0?'현재 세트':r.label}</option>`
+  ).join('');
+  _payoutInitialized = true;
+  loadPayout();
+}
+
+async function loadPayout() {
+  const sel = document.getElementById('payoutSetSelect');
+  const idx = parseInt(sel?.value) || 0;
+  const ranges = getSetRanges(12);
+  const range = ranges[idx];
+  if (!range) return;
+
+  const sdow = DOW_KR[new Date(range.start+'T12:00:00+09:00').getUTCDay()];
+  const edow = DOW_KR[new Date(range.end+'T12:00:00+09:00').getUTCDay()];
+  setText('payoutPeriod', `${range.start}(${sdow}) ~ ${range.end}(${edow})`);
+  setText('payoutBadge', '불러오는 중...');
+  document.getElementById('payoutList').innerHTML =
+    '<div style="text-align:center;color:var(--text-muted);padding:32px 0;font-size:12px">불러오는 중...</div>';
+
+  try {
+    const url = `${WEBAPP_URL}?action=set_riders&start=${range.start}&end=${range.end}`;
+    const res = await fetch(url);
+    _payoutData = await res.json();
+    setText('payoutBadge', `${_payoutData.days_count||0}일 집계`);
+    renderPayout();
+  } catch (e) {
+    setText('payoutBadge', '오류');
+    document.getElementById('payoutList').innerHTML =
+      `<div style="text-align:center;color:var(--reject);padding:32px 0;font-size:12px">불러오기 실패: ${e.message}</div>`;
+  }
+}
+
+function renderPayout() {
+  if (!_payoutData) return;
+  const threshold = parseInt(document.getElementById('payoutThreshold')?.value) || 0;
+  const rate = parseInt(document.getElementById('payoutRate')?.value) || 0;
+  const all = _payoutData.riders || [];
+
+  // 전체 기사에 초과분 계산
+  const withOver = all
+    .map(r => ({ ...r, over: Math.max(0, r.total - threshold) }))
+    .sort((a,b) => b.total - a.total);
+
+  const targets = withOver.filter(r => r.over > 0);
+  const totalOver = targets.reduce((a,r) => a + r.over, 0);
+  const totalPay  = totalOver * rate;
+
+  // 화면에 표시할 목록 (뷰 모드에 따라)
+  const shown = _payoutView === 'all'
+    ? withOver
+    : [...targets].sort((a,b) => b.over - a.over);
+
+  // 요약
+  const sum = document.getElementById('payoutSummary');
+  if (sum) sum.innerHTML = `
+    <div class="payout-sum-card">
+      <div class="payout-sum-label">대상 기사</div>
+      <div class="payout-sum-val">${targets.length}명</div>
+      <div class="payout-sum-sub">전체 ${all.length}명 중</div>
+    </div>
+    <div class="payout-sum-card">
+      <div class="payout-sum-label">총 초과 건수</div>
+      <div class="payout-sum-val">${totalOver.toLocaleString()}건</div>
+      <div class="payout-sum-sub">${threshold}건 초과분</div>
+    </div>
+    <div class="payout-sum-card total">
+      <div class="payout-sum-label">예상 지급 총액</div>
+      <div class="payout-sum-val">${totalPay.toLocaleString()}원</div>
+      <div class="payout-sum-sub">${totalOver.toLocaleString()}건 × ${rate.toLocaleString()}원</div>
+    </div>`;
+
+  setText('payoutListTitle', _payoutView === 'all' ? '전체 기사' : '대상 기사');
+  setText('payoutCount', _payoutView === 'all'
+    ? `${withOver.length}명 (초과 ${targets.length}명)`
+    : `${targets.length}명`);
+  setText('payoutInfo', `${threshold}건 초과 시 건당 ${rate.toLocaleString()}원 지급`);
+
+  // 목록
+  const list = document.getElementById('payoutList');
+  if (!list) return;
+  if (!shown.length) {
+    list.innerHTML = `<div style="text-align:center;color:var(--text-muted);padding:32px 0;font-size:12px">
+      ${_payoutView === 'all' ? '이 세트 기간에 기사 데이터가 없습니다' : threshold + '건을 초과한 기사가 없습니다'}</div>`;
+    return;
+  }
+
+  list.innerHTML = shown.map(r => {
+    const isOver = r.over > 0;
+    return `
+    <div class="payout-card${isOver ? '' : ' dim'}">
+      <div class="payout-card-top">
+        <div class="payout-name">${r.name}</div>
+        ${isOver
+          ? `<div class="payout-amount">${(r.over * rate).toLocaleString()}원</div>`
+          : `<div class="payout-amount none">–</div>`}
+      </div>
+      <div class="payout-meta">
+        <span>완료 <strong>${r.total}건</strong></span>
+        ${isOver
+          ? `<span>초과 <span class="payout-over">+${r.over}건</span></span>`
+          : `<span style="color:var(--text-muted)">기준까지 ${threshold - r.total}건</span>`}
+        <span>근무 ${r.work_days}일</span>
+      </div>
+      <div class="payout-slots">
+        <div class="payout-slot"><div class="payout-slot-label">아침점심</div><div class="payout-slot-val mo">${r.morning}</div></div>
+        <div class="payout-slot"><div class="payout-slot-label">오후논피크</div><div class="payout-slot-val af">${r.afternoon}</div></div>
+        <div class="payout-slot"><div class="payout-slot-label">저녁피크</div><div class="payout-slot-val ev">${r.evening}</div></div>
+        <div class="payout-slot"><div class="payout-slot-label">심야</div><div class="payout-slot-val ni">${r.night}</div></div>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 // ── Service Worker 등록 (PWA) ──
