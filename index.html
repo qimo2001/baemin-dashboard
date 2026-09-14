@@ -1030,6 +1030,7 @@ function showToast(msg) {
 window.addEventListener('DOMContentLoaded', () => {
   initSetCount();
   initNotifyToggle();
+  restoreAttendCache();   // 캐시된 출퇴근 정보 즉시 복원
 
   // 공휴일 로드와 데이터 로드를 병렬로 실행 (기다리지 않음)
   fetchHolidaysWithCache().then(() => renderAll()); // 공휴일 로드 후 재렌더
@@ -1085,7 +1086,7 @@ async function loadData() {
     document.getElementById('lastUpdated').textContent = new Date().toLocaleTimeString('ko-KR');
     document.getElementById('errorBanner').style.display='none';
     renderAll();
-    loadAttendance(); // 출퇴근 기록은 별도로 비동기 로드
+    maybeLoadAttendance(); // 출퇴근 기록은 60초 주기로만 갱신
   } catch(e) {
     const el=document.getElementById('errorBanner');
     el.textContent=`⚠ ${e.message}`;el.style.display='block';
@@ -1093,18 +1094,55 @@ async function loadData() {
 }
 
 // ── 출퇴근 기록 로드 (GAS API) ──
+// 시트 데이터는 10초마다 바뀌지만 출퇴근 기록은 변화가 드물어
+// 60초 주기로만 호출한다. localStorage에 캐시해 앱 재시작 시 즉시 표시.
+let _attendLastFetch = 0;
+let _attendFetching = false;
+const ATTEND_INTERVAL = 60000; // 60초
+
+function restoreAttendCache() {
+  try {
+    const today = nowKST().toISOString().slice(0,10);
+    const raw = localStorage.getItem('attendCache');
+    if (!raw) return;
+    const obj = JSON.parse(raw);
+    if (obj.date === today && obj.map) {
+      attendMap = obj.map;
+      console.log('출퇴근 캐시 복원');
+    }
+  } catch(e) {}
+}
+
+function maybeLoadAttendance(force) {
+  const now = Date.now();
+  if (!force && now - _attendLastFetch < ATTEND_INTERVAL) return;
+  if (_attendFetching) return;
+  loadAttendance();
+}
+
 async function loadAttendance() {
+  _attendFetching = true;
   try {
     const res = await fetch(`${WEBAPP_URL}?action=attendance`);
     const json = await res.json();
-    attendMap = {};
+    const map = {};
     (json.records || []).forEach(r => {
       const key = r.name + '|' + (r.phone||'').replace(/[^0-9]/g,'');
-      attendMap[key] = r;
+      map[key] = r;
     });
-    renderRiderList(riderRows); // 출퇴근 정보 반영해서 재렌더
+    attendMap = map;
+    _attendLastFetch = Date.now();
+    // 캐시 저장 (앱 재시작 시 즉시 표시용)
+    try {
+      localStorage.setItem('attendCache', JSON.stringify({
+        date: nowKST().toISOString().slice(0,10), map: map
+      }));
+    } catch(e) {}
+    renderRiderList(riderRows);
   } catch(e) {
     console.warn('출퇴근 기록 로드 실패:', e);
+  } finally {
+    _attendFetching = false;
   }
 }
 
