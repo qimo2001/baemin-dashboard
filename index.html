@@ -95,6 +95,10 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .stat-card.accept::before{background:#38bdf8}
 .stat-card.rider-total::before{background:#a78bfa}
 .stat-card.rider-active::before{background:#22d3a0}
+.stat-card.ongoing::before{background:#4db8ff}
+.stat-card.ongoing .stat-value{color:#4db8ff}
+.stat-card.outside::before{background:#94a3b8}
+.stat-card.outside .stat-value{color:#cbd5e1;font-size:28px}
 .stat-card.rider-total .stat-value{color:#a78bfa}
 .stat-card.rider-active .stat-value{color:#22d3a0}
 .stat-label{font-size:10px;color:var(--text-muted);letter-spacing:.04em;text-transform:uppercase;margin-bottom:6px}
@@ -412,20 +416,20 @@ footer{text-align:center;padding:10px;color:var(--text-muted);font-size:10px;
         <div class="stat-value" id="valComplete">–</div>
         <div class="stat-sub">배달 완료</div>
       </div>
+      <div class="stat-card ongoing">
+        <div class="stat-label">진행중</div>
+        <div class="stat-value" id="valOngoing">–</div>
+        <div class="stat-sub">배달 진행중</div>
+      </div>
+      <div class="stat-card cancel">
+        <div class="stat-label">취소</div>
+        <div class="stat-value" id="valCancel">–</div>
+        <div class="stat-sub">배차·귀책 취소</div>
+      </div>
       <div class="stat-card reject">
         <div class="stat-label">거절</div>
         <div class="stat-value" id="valReject">–</div>
         <div class="stat-sub">라이더 거절</div>
-      </div>
-      <div class="stat-card cancel">
-        <div class="stat-label">배차취소</div>
-        <div class="stat-value" id="valCancel">–</div>
-        <div class="stat-sub">배차 취소</div>
-      </div>
-      <div class="stat-card rider">
-        <div class="stat-label">귀책취소</div>
-        <div class="stat-value" id="valRider">–</div>
-        <div class="stat-sub">라이더 귀책</div>
       </div>
       <div class="stat-card accept wide">
         <div class="stat-label">금일 수락률</div>
@@ -442,6 +446,11 @@ footer{text-align:center;padding:10px;color:var(--text-muted);font-size:10px;
         <div class="stat-value" id="valActiveRiders">–</div>
         <div class="stat-sub">현재 운행중</div>
       </div>
+      <div class="stat-card outside wide">
+        <div class="stat-label">시간 외 배달현황 <span style="opacity:.6">세트 미적용</span></div>
+        <div class="stat-value" id="valOutside">–</div>
+        <div class="stat-sub" id="valOutsideSub">–</div>
+      </div>
     </div>
 
     <div class="section-header">
@@ -454,7 +463,7 @@ footer{text-align:center;padding:10px;color:var(--text-muted);font-size:10px;
           <div class="time-color-bar"></div>
           <div class="time-card-meta">
             <div class="time-card-name">아침점심피크</div>
-            <div class="time-card-hours" id="hours-morning">09:00–12:59</div>
+            <div class="time-card-hours" id="hours-morning">9-14시</div>
           </div>
           <div class="achieve-badge none" id="badge-morning">–</div>
         </div>
@@ -473,7 +482,7 @@ footer{text-align:center;padding:10px;color:var(--text-muted);font-size:10px;
           <div class="time-color-bar"></div>
           <div class="time-card-meta">
             <div class="time-card-name">오후논피크</div>
-            <div class="time-card-hours" id="hours-afternoon">13:00–16:59</div>
+            <div class="time-card-hours" id="hours-afternoon">14-17시</div>
           </div>
           <div class="achieve-badge none" id="badge-afternoon">–</div>
         </div>
@@ -492,7 +501,7 @@ footer{text-align:center;padding:10px;color:var(--text-muted);font-size:10px;
           <div class="time-color-bar"></div>
           <div class="time-card-meta">
             <div class="time-card-name">저녁피크</div>
-            <div class="time-card-hours">17:00–19:59</div>
+            <div class="time-card-hours" id="hours-evening">17-20시</div>
           </div>
           <div class="achieve-badge none" id="badge-evening">–</div>
         </div>
@@ -511,7 +520,7 @@ footer{text-align:center;padding:10px;color:var(--text-muted);font-size:10px;
           <div class="time-color-bar"></div>
           <div class="time-card-meta">
             <div class="time-card-name">심야논피크</div>
-            <div class="time-card-hours">20:00–23:59</div>
+            <div class="time-card-hours" id="hours-night">20-24시</div>
           </div>
           <div class="achieve-badge none" id="badge-night">–</div>
         </div>
@@ -739,7 +748,7 @@ footer{text-align:center;padding:10px;color:var(--text-muted);font-size:10px;
           <span class="payout-unit">원</span>
         </div>
       </div>
-      <div class="set-info" id="payoutInfo">기준을 넘긴 기사만 표시됩니다</div>
+      <div class="set-info" id="payoutInfo">SLA 배달완료 합계 기준 · 기준을 넘긴 기사만 표시</div>
     </div>
 
     <!-- 요약 -->
@@ -839,25 +848,7 @@ const DAILY_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?for
 const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbzKpboKDPQbCGwS6_bki5d6MWzJCP_EfrmZSEn1IJ8NZRg8GxqbSnoNazua9E4LnN35/exec';
 
 // ── 요일별 목표 ──
-const GOALS = {
-  0:{morning:29,afternoon:22,evening:35,night:24}, // 일
-  1:{morning:19,afternoon:18,evening:30,night:23}, // 월
-  2:{morning:19,afternoon:18,evening:30,night:23}, // 화
-  3:{morning:19,afternoon:18,evening:30,night:23}, // 수
-  4:{morning:19,afternoon:18,evening:30,night:23}, // 목
-  5:{morning:21,afternoon:21,evening:32,night:26}, // 금
-  6:{morning:27,afternoon:22,evening:36,night:25}, // 토
-};
-const HOLIDAY_GOAL = GOALS[6];
-const SLOT_POINTS = {
-  0:{morning:3,afternoon:2,evening:3,night:1},
-  1:{morning:2,afternoon:2,evening:3,night:1},
-  2:{morning:2,afternoon:2,evening:3,night:1},
-  3:{morning:2,afternoon:2,evening:3,night:1},
-  4:{morning:2,afternoon:2,evening:3,night:1},
-  5:{morning:2,afternoon:2,evening:3,night:2},
-  6:{morning:3,afternoon:2,evening:3,night:2},
-};
+// 슬롯 목표는 배민 페이지가 직접 내려주므로 하드코딩 목표표는 사용하지 않음
 const DOW_KR = ['일','월','화','수','목','금','토'];
 
 // ── 공휴일 ──
@@ -894,10 +885,7 @@ async function fetchHolidaysWithCache() {
 }
 
 function isHoliday(d) { return holidaySet.has(d); }
-function getGoal(d) {
-  if (isHoliday(d)) return HOLIDAY_GOAL;
-  return GOALS[new Date(d+'T12:00:00+09:00').getUTCDay()];
-}
+
 
 // ── 데이터 ──
 let allRows=[], riderRows=[], dailyRows=[];
@@ -964,32 +952,18 @@ async function initFCM() {
 let _notifiedSlots = {};
 let _notifiedBizDate = '';
 
-function checkAndNotify(rows, bizDate, goal) {
-  // 날짜가 바뀌면(06:00 리셋) 알림 기록 초기화
-  if (_notifiedBizDate !== bizDate) {
-    _notifiedSlots = {};
-    _notifiedBizDate = bizDate;
-  }
-
-  const slots = [
-    { key: 'morning',   name: '아침점심피크', icon: '🌅' },
-    { key: 'afternoon', name: '오후논피크',   icon: '☀️' },
-    { key: 'evening',   name: '저녁피크',     icon: '🌆' },
-    { key: 'night',     name: '심야논피크',   icon: '🌙' },
+function checkAndNotify(slots, targets, bizDate) {
+  if (_notifiedBizDate !== bizDate) { _notifiedSlots = {}; _notifiedBizDate = bizDate; }
+  const meta = [
+    { key:'morning',   name:'아침점심피크', icon:'🌅' },
+    { key:'afternoon', name:'오후논피크',   icon:'☀️' },
+    { key:'evening',   name:'저녁피크',     icon:'🌆' },
+    { key:'night',     name:'심야논피크',   icon:'🌙' },
   ];
-
-  slots.forEach(({ key, name, icon }) => {
-    const actual = sum(rows, key);
-    const target = goal[key] * setCount;
-    const achieved = actual >= target && target > 0;
-
-    // 이미 알림 보낸 슬롯은 스킵
-    if (_notifiedSlots[key]) return;
-
-    if (achieved) {
-      _notifiedSlots[key] = true;
-      sendAchieveAlert(icon, name, actual, target);
-    }
+  meta.forEach(({key,name,icon})=>{
+    const actual = slots[key]||0, target = targets[key]||0;
+    if (_notifiedSlots[key] || target <= 0) return;
+    if (actual >= target) { _notifiedSlots[key]=true; sendAchieveAlert(icon,name,actual,target); }
   });
 }
 
@@ -1147,33 +1121,34 @@ async function loadAttendance() {
 }
 
 // ── 파싱 ──
-// ── 합계 시트 파싱 ──
-// A:갱신시간 | B:완료_푸드 | C:완료_비마트 | D:완료_배민스토어 | E:완료_합계
-// F:거절_푸드 | G:거절_비마트 | H:거절_배민스토어 | I:거절_합계
-// J:배차취소_푸드 | K:배차취소_비마트 | L:배차취소_배민스토어 | M:배차취소_합계
-// N:배달취소_푸드 | O:배달취소_비마트 | P:배달취소_배민스토어 | Q:배달취소_합계
-// R:아침점심피크 | S:오후논피크 | T:저녁피크 | U:심야논피크
+// ── 합계 시트 파싱 (2026-11 개편) ──
+// 0갱신시간 1수락률 2완료 3진행중 4취소 5거절 6시간외_완료 7시간외_라이더
+// 8운행중 9운행종료
+// 10~12 아침(완료/목표/시간) 13~15 오후 16~18 저녁 19~21 심야
 function parseCSV(csv) {
   const lines=csv.trim().split('\n'); if(lines.length<2)return[];
   return lines.slice(1).map(l=>{
     const c=splitCSV(l); const raw=c[0]?.replace(/"/g,'').trim(); if(!raw)return null;
-    return{date:raw.slice(0,10), datetime:raw,
-      completeFood:  toN(c[1]),  // 완료_푸드
-      completeMart:  toN(c[2]),  // 완료_비마트
-      completeStore: toN(c[3]),  // 완료_배민스토어
-      complete:      toN(c[4]),  // 완료_합계
-      rejectFood:    toN(c[5]),  // 거절_푸드
-      reject:        toN(c[8]),  // 거절_합계
-      cancelFood:    toN(c[9]),  // 배차취소_푸드
-      cancel:        toN(c[12]), // 배차취소_합계
-      riderFood:     toN(c[13]), // 배달취소_푸드
-      rider:         toN(c[16]), // 배달취소_합계
-      morning:   toN(c[17]),
-      afternoon: toN(c[18]),
-      evening:   toN(c[19]),
-      night:     toN(c[20])};
+    return{
+      date: raw.slice(0,10), datetime: raw,
+      acceptRate: toF(c[1]),
+      complete:   toN(c[2]),
+      ongoing:    toN(c[3]),
+      cancel:     toN(c[4]),
+      reject:     toN(c[5]),
+      outDone:    toN(c[6]),
+      outRider:   toN(c[7]),
+      running:    toN(c[8]),
+      offduty:    toN(c[9]),
+      slots:   { morning:toN(c[10]), afternoon:toN(c[13]), evening:toN(c[16]), night:toN(c[19]) },
+      targets: { morning:toN(c[11]), afternoon:toN(c[14]), evening:toN(c[17]), night:toN(c[20]) },
+      hours:   { morning:txt(c[12]), afternoon:txt(c[15]), evening:txt(c[18]), night:txt(c[21]) },
+    };
   }).filter(Boolean).sort((a,b)=>a.datetime.localeCompare(b.datetime));
 }
+function toF(v){ if(!v) return 0; const n=parseFloat(String(v).replace(/[^0-9.\-]/g,'')); return isNaN(n)?0:n; }
+function txt(v){ return (v||'').toString().replace(/"/g,'').trim(); }
+
 // ── 라이더별 시트 파싱 ──
 // A:갱신시간 | B:이름 | C:운행상태 | D:휴대폰번호
 // E:완료_푸드 | F:완료_비마트 | G:완료_배민스토어 | H:완료_합계
@@ -1205,35 +1180,33 @@ function parseRiderCSV(csv) {
     };
   }).filter(Boolean);
 }
-// ── 일별배달내역 시트 파싱 ──
-// A:갱신시간 | B:날짜
-// C:완료_푸드(2) | D:완료_비마트(3) | E:완료_배민스토어(4) | F:완료_합계(5)
-// G:거절_푸드(6) | H:거절_비마트(7) | I:거절_배민스토어(8) | J:거절_합계(9)
-// K:배차취소_푸드(10) | L:배차취소_비마트(11) | M:배차취소_배민스토어(12) | N:배차취소_합계(13)
-// O:배달취소_푸드(14) | P:배달취소_비마트(15) | Q:배달취소_배민스토어(16) | R:배달취소_합계(17)
-// S:아침점심피크(18) | T:오후논피크(19) | U:저녁피크(20) | V:심야논피크(21)
-// W:6시(22) ~ AT:5시(45)
+// ── 일별배달내역 시트 파싱 (2026-11 개편) ──
+// 0갱신 1날짜 2수락률 3완료 4진행중 5취소 6거절 7시간외_완료 8시간외_라이더
+// 9~11 아침(완료/목표/시간) 12~14 오후 15~17 저녁 18~20 심야
 function parseDailyCSV(csv) {
   const lines=csv.trim().split('\n'); if(lines.length<2)return[];
   return lines.slice(1).map(l=>{
     const c=splitCSV(l); const dr=c[1]?.replace(/"/g,'').trim(); if(!dr)return null;
     return{
-      date:          normDate(dr),
-      completeFood:  toN(c[2]),   // C 완료_푸드 (수락률용)
-      completeMart:  toN(c[3]),
-      completeStore: toN(c[4]),
-      complete:      toN(c[5]),   // F 완료_합계 (물량/SLA용)
-      rejectFood:    toN(c[6]),   // G 거절_푸드
-      reject:        toN(c[9]),   // J 거절_합계
-      cancel:        toN(c[13]),  // N 배차취소_합계
-      rider:         toN(c[17]),  // R 배달취소_합계
-      morning:       toN(c[18]),  // S 아침점심피크
-      afternoon:     toN(c[19]),  // T 오후논피크
-      evening:       toN(c[20]),  // U 저녁피크
-      night:         toN(c[21]),  // V 심야논피크
+      date:       normDate(dr),
+      acceptRate: toF(c[2]),
+      complete:   toN(c[3]),
+      ongoing:    toN(c[4]),
+      cancel:     toN(c[5]),
+      reject:     toN(c[6]),
+      outDone:    toN(c[7]),
+      morning:   toN(c[9]),  mGoal: toN(c[10]),
+      afternoon: toN(c[12]), aGoal: toN(c[13]),
+      evening:   toN(c[15]), eGoal: toN(c[16]),
+      night:     toN(c[18]), nGoal: toN(c[19]),
     };
   }).filter(Boolean);
 }
+// 날짜별 슬롯 목표 조회 (페이지가 내려준 값)
+function goalsOf(row) {
+  return { morning:row.mGoal||0, afternoon:row.aGoal||0, evening:row.eGoal||0, night:row.nGoal||0 };
+}
+
 function splitCSV(l) {
   const r=[]; let cur='',q=false;
   for(const c of l){if(c==='"'){q=!q;continue}if(c===','&&!q){r.push(cur);cur='';continue}cur+=c;}
@@ -1265,7 +1238,7 @@ function parseKST(str){
 // ── 렌더 전체 ──
 function renderAll() {
   const biz = getBusinessDate();
-  renderHome(riderRows, biz);
+  renderHome(allRows.length ? allRows[allRows.length-1] : null, biz);
   renderRiderList(riderRows);
   renderSLA(dailyRows);
   renderAnalysis(dailyRows);
@@ -1274,57 +1247,56 @@ function sum(arr,k){return arr.reduce((a,r)=>a+(r[k]||0),0);}
 function setText(id,v){const el=document.getElementById(id);if(el)el.textContent=v;}
 
 // ── 홈 렌더 ──
-function renderHome(rows, bizDate) {
-  const complete=sum(rows,'complete'), reject=sum(rows,'reject');
-  const cancel=sum(rows,'cancel'), rider=sum(rows,'rider');
-  const totalFood = sum(rows,'completeFood');
-  const totalRejectFood = sum(rows,'rejectFood') || reject; // 거절_푸드 없으면 합계로
-  // 수락률 = 완료_푸드 / (완료_푸드 + 거절_푸드 + 배차취소_합계 + 배달취소_합계)
-  const foodComplete = (totalFood > 0) ? totalFood : complete;
-  const foodReject = (sum(rows,'rejectFood') > 0) ? sum(rows,'rejectFood') : reject;
-  const denom = foodComplete + foodReject + cancel + rider;
-  const rate = denom > 0 ? (foodComplete / denom * 100) : 0;
-  setText('valComplete',complete); setText('valReject',reject);
-  setText('valCancel',cancel); setText('valRider',rider);
-  setText('valAccept',rate.toFixed(1)+'%');
-  setText('valAcceptSub',`${totalFood>0?'푸드':'합계'} ${foodComplete} / 추천 ${denom}`);
+function renderHome(s, bizDate) {
+  const dow = new Date(bizDate+'T12:00:00+09:00').getUTCDay();
+  const bizDowLabel = DOW_KR[dow];
+  setText('bizDateBadge', `📅 ${bizDate} (${bizDowLabel}) · ${setCount}세트`);
 
-  const dow=new Date(bizDate+'T12:00:00+09:00').getUTCDay();
-  const isWE=(dow===0||dow===6);
-  const elMorning=document.getElementById('hours-morning');
-  if(elMorning)elMorning.textContent=isWE?'09:00–13:59':'09:00–12:59';
-  const el=document.getElementById('hours-afternoon');
-  if(el)el.textContent=isWE?'14:00–16:59':'13:00–16:59';
-  const goal=getGoal(bizDate);
-  const bizDowLabel=DOW_KR[dow];
-  const holiday=isHoliday(bizDate);
+  if (!s) {
+    ['valComplete','valOngoing','valCancel','valReject','valAccept'].forEach(id=>setText(id,'–'));
+    setText('valAcceptSub','데이터 없음');
+    return;
+  }
 
-  setText('bizDateBadge', holiday
-    ? `🎌 ${bizDate} 공휴일 (토 기준) · ${setCount}세트`
-    : `📅 ${bizDate} (${bizDowLabel}) · ${setCount}세트`);
+  // 일일 현황 — 페이지가 계산해 준 값을 그대로 표시
+  setText('valComplete', s.complete);
+  setText('valOngoing',  s.ongoing);
+  setText('valCancel',   s.cancel);
+  setText('valReject',   s.reject);
+  setText('valAccept',   s.acceptRate.toFixed(1)+'%');
+  setText('valAcceptSub', `완료 ${s.complete} · 취소 ${s.cancel} · 거절 ${s.reject}`);
 
-  ['morning','afternoon','evening','night'].forEach(slot=>{
-    const actual=sum(rows,slot), g=goal[slot]*setCount;
-    const pct=g>0?Math.min(Math.round(actual/g*100),999):0;
-    const diff=actual-g;
-    setText(`val-${slot}`,actual);
-    setText(`goal-${slot}`,g);
-    setText(`pct-${slot}`,pct+'%');
+  // 시간 외 배달현황
+  setText('valOutside',    `${s.outDone}건`);
+  setText('valOutsideSub', `운행 라이더 ${s.outRider}명 · 세트 미적용`);
+
+  // 슬롯별 달성률 — 목표도 페이지 값 사용 (세트 반영된 값)
+  const SLOT_META = {
+    morning:{label:'아침점심피크'}, afternoon:{label:'오후논피크'},
+    evening:{label:'저녁피크'},     night:{label:'심야논피크'},
+  };
+  Object.keys(SLOT_META).forEach(slot=>{
+    const actual = s.slots[slot]||0, g = s.targets[slot]||0;
+    const pct  = g>0 ? Math.min(Math.round(actual/g*100),999) : 0;
+    const diff = actual-g;
+    setText(`val-${slot}`, actual);
+    setText(`goal-${slot}`, g);
+    setText(`pct-${slot}`, pct+'%');
     const fill=document.getElementById(`fill-${slot}`);
-    if(fill)fill.style.width=Math.min(actual/g*100,100)+'%';
+    if(fill) fill.style.width = (g>0 ? Math.min(actual/g*100,100) : 0)+'%';
     const badge=document.getElementById(`badge-${slot}`);
     if(badge){
-      if(actual>=g&&g>0){badge.textContent=`✓ +${diff}`;badge.className='achieve-badge hit';}
-      else if(g>0){badge.textContent=`✗ ${diff}`;badge.className='achieve-badge miss';}
-      else{badge.textContent='–';badge.className='achieve-badge none';}
+      if(g>0 && actual>=g){ badge.textContent=`✓ +${diff}`; badge.className='achieve-badge hit'; }
+      else if(g>0){ badge.textContent=`✗ ${diff}`; badge.className='achieve-badge miss'; }
+      else { badge.textContent='–'; badge.className='achieve-badge none'; }
     }
-    setText(`goalinfo-${slot}`, holiday
-      ? `🎌 공휴일 → 토요일 기준`
-      : `${bizDate} (${bizDowLabel}) · 06:00 리셋`);
+    // 시간대 라벨도 페이지 값 (예: 9-14시)
+    const hourEl=document.getElementById(`hours-${slot}`);
+    if(hourEl && s.hours && s.hours[slot]) hourEl.textContent = s.hours[slot];
+    setText(`goalinfo-${slot}`, `${bizDate} (${bizDowLabel}) · 목표 ${g}건`);
   });
 
-  // 달성 알림 체크
-  checkAndNotify(rows, bizDate, goal);
+  checkAndNotify(s.slots, s.targets, bizDate);
 }
 
 // ── 라이더 렌더 ──
@@ -1558,13 +1530,11 @@ function renderSLA(rows) {
   let achievedSlots=0;
   const dayDetails=[];
   setRows.forEach(r=>{
-    const dow=new Date(r.date+'T12:00:00+09:00').getUTCDay();
-    const hdow=isHoliday(r.date)?6:dow;
-    const goal=GOALS[hdow];
+    const goal=goalsOf(r);   // 페이지가 내려준 그날의 슬롯 목표
     let ds=0; const sr={};
     slots.forEach(s=>{
-      const target=goal[s]*setCount;
-      const ok=r[s]>=target;
+      const target=goal[s];
+      const ok=target>0 && r[s]>=target;
       if(ok){achievedSlots++;ds++;}
       sr[s]={actual:r[s],goal:target,ok};
     });
@@ -1578,13 +1548,8 @@ function renderSLA(rows) {
   setText('slaVolumeSub', slotOk?`✅ ${REQUIRED_SLOTS}개 기준 달성`:`❌ ${REQUIRED_SLOTS}개 기준 미달`);
   setText('slaVolumeDetail',`총: ${rawTotal}건 / 목표: ${TARGET}건 (${setCount}세트×${SET_UNIT})\n진행: ${setRows.length}/7일`);
 
-  function dailyAcceptRate(r) {
-    const food = r.completeFood > 0 ? r.completeFood : r.complete;
-    const rej  = r.rejectFood  > 0 ? r.rejectFood  : r.reject;
-    const denom = food + rej + r.cancel + r.rider;
-    return denom > 0 ? (food / denom * 100) : null;
-  }
-  const dailyRates = setRows.map(r => dailyAcceptRate(r)).filter(v => v !== null);
+  // 수락률은 배민 페이지가 계산해 준 일별 값을 그대로 사용
+  const dailyRates = setRows.map(r => r.acceptRate > 0 ? r.acceptRate : null).filter(v => v !== null);
   const weeklyRate = dailyRates.length > 0
     ? dailyRates.reduce((a, b) => a + b, 0) / dailyRates.length : 0;
   const acceptOk = weeklyRate >= ACCEPT_RATE_MIN;
@@ -1593,8 +1558,9 @@ function renderSLA(rows) {
   if(accEl){accEl.textContent=weeklyRate.toFixed(1)+'%';accEl.style.color=acceptColor;}
   setText('slaAcceptSub', acceptOk?`✅ 80% 기준 달성`:`❌ 80% 기준 미달`);
   const tC=setRows.reduce((a,r)=>a+r.complete,0);
-  const tDenom=setRows.reduce((a,r)=>a+r.complete+r.reject+r.cancel+r.rider,0);
-  setText('slaAcceptDetail',`일별 평균 (${dailyRates.length}일 기준)\n완료: ${tC}건 / 전체: ${tDenom}건`);
+  const tRej=setRows.reduce((a,r)=>a+r.reject,0);
+  const tCan=setRows.reduce((a,r)=>a+r.cancel,0);
+  setText('slaAcceptDetail',`일별 평균 (${dailyRates.length}일 기준)\n완료 ${tC} · 취소 ${tCan} · 거절 ${tRej}`);
 
   const slaOk = slotOk && acceptOk;
   const totalEl = document.getElementById('slaTotalScore');
@@ -1619,11 +1585,9 @@ function renderSLA(rows) {
   }
   sg.innerHTML = dayDetails.map(d => {
     const row = setRows.find(r => r.date === d.date);
-    const food = row ? (row.completeFood ?? row.complete) : 0;
-    const rej  = row ? (row.rejectFood ?? row.reject) : 0;
-    const denom = row ? food + rej + row.cancel + row.rider : 0;
-    const rate = denom > 0 ? (food / denom * 100).toFixed(1) : '–';
-    const rateOk = denom > 0 && (food / denom * 100) >= ACCEPT_RATE_MIN;
+    const rateNum = row ? (row.acceptRate||0) : 0;
+    const rate = rateNum > 0 ? rateNum.toFixed(1) : '–';
+    const rateOk = rateNum >= ACCEPT_RATE_MIN;
     const holiday=isHoliday(d.date);
     const dow=DOW_KR[d.dow];
     const dateLabel=d.date.slice(5);
@@ -1674,34 +1638,23 @@ function renderAnalysis(rows) {
 
   // ── 일평균 완료 ──
   const avgComplete = recent.reduce((a,r)=>a+r.complete,0) / recent.length;
-  const target1 = 750 / 7; // 1세트 하루 목표
-  const targetN = target1 * setCount;
+  // 일평균 목표 = 기간 내 실제 기록된 슬롯 목표 합의 평균
+  let goalDays=0, goalSum=0;
+  recent.forEach(r=>{ const g=goalsOf(r); const t=g.morning+g.afternoon+g.evening+g.night;
+    if(t>0){ goalSum+=t; goalDays++; } });
+  const target1 = goalDays>0 ? goalSum/goalDays : SET_UNIT/7;
+  const targetN = target1;
 
-  // ── 목표 달성일 계산 ──
-  let achieveDays = 0;
-  recent.forEach(r => {
-    const dow = new Date(r.date+'T12:00:00+09:00').getUTCDay();
-    const hdow = isHoliday(r.date)?6:dow;
-    const dayTarget = Object.values(GOALS[hdow]).reduce((a,b)=>a+b,0) * setCount / 4; // 하루 총목표 근사
-    if (r.complete >= r.complete * 0.9) achieveDays++; // 시간대별 달성 여부
-  });
-
-  // 시간대별 달성일 계산
+  // ── 시간대별 달성 슬롯 수 ──
   let totalAchieveDays = 0, totalDays = recent.length * slots.length;
   recent.forEach(r => {
-    const dow = new Date(r.date+'T12:00:00+09:00').getUTCDay();
-    const hdow = isHoliday(r.date)?6:dow;
-    const goal = GOALS[hdow];
-    slots.forEach(s => { if(r[s] >= goal[s]*setCount) totalAchieveDays++; });
+    const goal = goalsOf(r);
+    slots.forEach(s => { if(goal[s] > 0 && r[s] >= goal[s]) totalAchieveDays++; });
   });
   const achieveRate = totalDays > 0 ? totalAchieveDays/totalDays*100 : 0;
 
   // ── 평균 수락률 (푸드 완료건 기준) ──
-  const dailyRates14 = recent.map(r=>{
-    const food = r.completeFood ?? r.complete;
-    const d=food+r.reject+r.cancel+r.rider;
-    return d>0?food/d*100:null;
-  }).filter(v=>v!==null);
+  const dailyRates14 = recent.map(r=>r.acceptRate>0?r.acceptRate:null).filter(v=>v!==null);
   const avgAccept = dailyRates14.length>0 ? dailyRates14.reduce((a,b)=>a+b,0)/dailyRates14.length : 0;
 
   // ── 트렌드: 전반부 vs 후반부 평균 비교 ──
@@ -1752,11 +1705,9 @@ function renderAnalysis(rows) {
   if(slotList) slotList.innerHTML = slots.map(s => {
     let achieved=0, totalSlotDays=0, totalActual=0, totalGoal=0;
     recent.forEach(r => {
-      const dow=new Date(r.date+'T12:00:00+09:00').getUTCDay();
-      const hdow=isHoliday(r.date)?6:dow;
-      const g=GOALS[hdow][s]*setCount;
+      const g=goalsOf(r)[s];
       totalActual+=r[s]; totalGoal+=g; totalSlotDays++;
-      if(r[s]>=g) achieved++;
+      if(g>0 && r[s]>=g) achieved++;
     });
     const pct = totalGoal>0?totalActual/totalGoal*100:0;
     const achieveD = totalSlotDays>0?achieved/totalSlotDays*100:0;
@@ -1779,12 +1730,20 @@ function renderAnalysis(rows) {
     const dow=new Date(r.date+'T12:00:00+09:00').getUTCDay();
     dowData[dow].sum+=r.complete; dowData[dow].cnt++;
   });
+  // 요일별 평균 목표 (그날 시트에 기록된 4슬롯 목표 합)
+  const dowGoal = Array(7).fill(null).map(()=>({sum:0,cnt:0}));
+  recent.forEach(r => {
+    const i = new Date(r.date+'T12:00:00+09:00').getUTCDay();
+    const g = goalsOf(r);
+    const t = g.morning+g.afternoon+g.evening+g.night;
+    if (t > 0) { dowGoal[i].sum += t; dowGoal[i].cnt++; }
+  });
   const maxDow = Math.max(...dowData.map(d=>d.cnt>0?d.sum/d.cnt:0), 1);
   const dowGrid = document.getElementById('anlDowGrid');
   if(dowGrid) dowGrid.innerHTML = DOW_KR.map((label,i) => {
     const avg = dowData[i].cnt>0 ? dowData[i].sum/dowData[i].cnt : 0;
     const pct = Math.round(avg/maxDow*100);
-    const dayTarget = Object.values(GOALS[i]).reduce((a,b)=>a+b,0)*setCount/4;
+    const dayTarget = dowGoal[i].cnt>0 ? dowGoal[i].sum/dowGoal[i].cnt : 0;
     const rate = dayTarget>0?avg/dayTarget*100:0;
     const col = rate>=100?'var(--complete)':rate>=80?'var(--accent)':'var(--reject)';
     return `<div class="anl-dow-card">
@@ -1800,10 +1759,11 @@ function renderAnalysis(rows) {
   const chart = document.getElementById('anlChart');
   if(chart) chart.innerHTML = recent.map(r => {
     const dow=new Date(r.date+'T12:00:00+09:00').getUTCDay();
-    const hdow=isHoliday(r.date)?6:dow;
-    const dayGoal=Object.values(GOALS[hdow]).reduce((a,b)=>a+b,0)*setCount/4;
+    const gg=goalsOf(r);
+    const dayGoal=gg.morning+gg.afternoon+gg.evening+gg.night;
     const h = Math.round(r.complete/maxVal*72);
-    const col = r.complete>=dayGoal?'var(--complete)':r.complete>=dayGoal*0.8?'var(--accent)':'var(--reject)';
+    const col = dayGoal<=0 ? 'var(--text-muted)'
+      : r.complete>=dayGoal?'var(--complete)':r.complete>=dayGoal*0.8?'var(--accent)':'var(--reject)';
     return `<div class="anl-bar-wrap">
       <div class="anl-bar" style="height:${h}px;background:${col}">
         <div class="atip">${r.date.slice(5)} (${DOW_KR[dow]})<br>${r.complete}건</div>
@@ -1929,7 +1889,7 @@ function renderPayout() {
       <div class="payout-sum-sub">전체 ${all.length}명 중</div>
     </div>
     <div class="payout-sum-card">
-      <div class="payout-sum-label">총 초과 건수</div>
+      <div class="payout-sum-label">총 초과 건수 (SLA 완료 기준)</div>
       <div class="payout-sum-val">${totalOver.toLocaleString()}건</div>
       <div class="payout-sum-sub">${threshold}건 초과분</div>
     </div>
@@ -1943,7 +1903,7 @@ function renderPayout() {
   setText('payoutCount', _payoutView === 'all'
     ? `${withOver.length}명 (초과 ${targets.length}명)`
     : `${targets.length}명`);
-  setText('payoutInfo', `${threshold}건 초과 시 건당 ${rate.toLocaleString()}원 지급`);
+  setText('payoutInfo', `SLA 배달완료 합계 ${threshold}건 초과 시 건당 ${rate.toLocaleString()}원 지급`);
 
   // 목록
   const list = document.getElementById('payoutList');
@@ -1965,7 +1925,7 @@ function renderPayout() {
           : `<div class="payout-amount none">–</div>`}
       </div>
       <div class="payout-meta">
-        <span>완료 <strong>${r.total}건</strong></span>
+        <span>SLA 완료 <strong>${r.total}건</strong></span>
         ${isOver
           ? `<span>초과 <span class="payout-over">+${r.over}건</span></span>`
           : `<span style="color:var(--text-muted)">기준까지 ${threshold - r.total}건</span>`}
