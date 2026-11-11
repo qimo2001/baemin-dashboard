@@ -294,6 +294,18 @@ footer{text-align:center;padding:10px;color:var(--text-muted);font-size:10px;
   width:100px;padding:7px 10px;border-radius:8px;font-size:15px;
   font-family:'JetBrains Mono',monospace;text-align:right;outline:none}
 .payout-input:focus{border-color:var(--accent)}
+.payout-input.sm{width:76px;font-size:14px}
+.payout-tier-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.payout-tier-dot.t1{background:var(--accent)}
+.payout-tier-dot.t2{background:var(--complete)}
+.payout-label{width:62px}
+.payout-tiers{display:flex;gap:6px;margin-top:8px}
+.payout-tier{flex:1;background:var(--surface2);border-radius:6px;padding:6px 8px;
+  display:flex;align-items:center;justify-content:space-between;font-size:10px}
+.payout-tier.t1{border-left:2px solid var(--accent)}
+.payout-tier.t2{border-left:2px solid var(--complete)}
+.payout-tier-cnt{font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--text)}
+.payout-tier-amt{font-family:'JetBrains Mono',monospace;color:var(--text-muted)}
 .payout-unit{font-size:11px;color:var(--text-muted)}
 
 .payout-summary{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:4px}
@@ -738,17 +750,23 @@ footer{text-align:center;padding:10px;color:var(--text-muted);font-size:10px;
       <div class="set-config-title">⚙ 정산 조건</div>
       <div class="payout-input-row">
         <div class="payout-input-group">
-          <label class="payout-label">기준 완료 건수</label>
-          <input class="payout-input" id="payoutThreshold" type="number" min="0" value="100" oninput="renderPayout()">
-          <span class="payout-unit">건 초과분부터</span>
+          <span class="payout-tier-dot t1"></span>
+          <label class="payout-label">1구간 시작</label>
+          <input class="payout-input" id="payoutT1Start" type="number" min="1" value="151" oninput="renderPayout()">
+          <span class="payout-unit">건부터 ·</span>
+          <input class="payout-input sm" id="payoutT1Rate" type="number" min="0" step="100" value="500" oninput="renderPayout()">
+          <span class="payout-unit">원</span>
         </div>
         <div class="payout-input-group">
-          <label class="payout-label">건당 지급액</label>
-          <input class="payout-input" id="payoutRate" type="number" min="0" step="100" value="500" oninput="renderPayout()">
+          <span class="payout-tier-dot t2"></span>
+          <label class="payout-label">2구간 시작</label>
+          <input class="payout-input" id="payoutT2Start" type="number" min="1" value="201" oninput="renderPayout()">
+          <span class="payout-unit">건부터 ·</span>
+          <input class="payout-input sm" id="payoutT2Rate" type="number" min="0" step="100" value="1000" oninput="renderPayout()">
           <span class="payout-unit">원</span>
         </div>
       </div>
-      <div class="set-info" id="payoutInfo">SLA 배달완료 합계 기준 · 기준을 넘긴 기사만 표시</div>
+      <div class="set-info" id="payoutInfo">SLA 배달완료 합계 기준 · 구간별 누진 적용</div>
     </div>
 
     <!-- 요약 -->
@@ -1823,6 +1841,7 @@ function setPayoutView(mode) {
 
 function initPayoutSelect() {
   if (_payoutInitialized) return;
+  restorePayoutCfg();
   const ranges = getSetRanges(12);
   const sel = document.getElementById('payoutSetSelect');
   if (!sel) return;
@@ -1860,27 +1879,72 @@ async function loadPayout() {
   }
 }
 
+// ── 정산 설정 (localStorage 저장) ──
+const PAYOUT_DEFAULT = { t1Start:151, t1Rate:500, t2Start:201, t2Rate:1000 };
+
+function getPayoutCfg() {
+  const g = (id, d) => {
+    const v = parseInt(document.getElementById(id)?.value);
+    return (isNaN(v) || v < 0) ? d : v;
+  };
+  let cfg = {
+    t1Start: g('payoutT1Start', PAYOUT_DEFAULT.t1Start),
+    t1Rate:  g('payoutT1Rate',  PAYOUT_DEFAULT.t1Rate),
+    t2Start: g('payoutT2Start', PAYOUT_DEFAULT.t2Start),
+    t2Rate:  g('payoutT2Rate',  PAYOUT_DEFAULT.t2Rate),
+  };
+  // 2구간 시작이 1구간보다 앞서면 2구간을 무시
+  if (cfg.t2Start <= cfg.t1Start) cfg.t2Start = Infinity;
+  try { localStorage.setItem('payoutCfg', JSON.stringify({
+    t1Start:cfg.t1Start, t1Rate:cfg.t1Rate,
+    t2Start:isFinite(cfg.t2Start)?cfg.t2Start:0, t2Rate:cfg.t2Rate })); } catch(e) {}
+  return cfg;
+}
+
+function restorePayoutCfg() {
+  try {
+    const raw = localStorage.getItem('payoutCfg');
+    if (!raw) return;
+    const o = JSON.parse(raw);
+    const set = (id, v) => { const el = document.getElementById(id); if (el && v > 0) el.value = v; };
+    set('payoutT1Start', o.t1Start); set('payoutT1Rate', o.t1Rate);
+    set('payoutT2Start', o.t2Start); set('payoutT2Rate', o.t2Rate);
+  } catch(e) {}
+}
+
+// 구간별 누진 계산
+//   1구간: t1Start번째 건 ~ (t2Start-1)번째 건 → t1Rate
+//   2구간: t2Start번째 건 이상            → t2Rate
+function calcPayout(total, cfg) {
+  const base1 = cfg.t1Start - 1;                    // 1구간 직전까지 미지급
+  const base2 = isFinite(cfg.t2Start) ? cfg.t2Start - 1 : Infinity;
+  const c1 = Math.max(0, Math.min(total, base2) - base1);
+  const c2 = isFinite(base2) ? Math.max(0, total - base2) : 0;
+  return { c1, c2, over: c1 + c2, amount: c1 * cfg.t1Rate + c2 * cfg.t2Rate };
+}
+
 function renderPayout() {
   if (!_payoutData) return;
-  const threshold = parseInt(document.getElementById('payoutThreshold')?.value) || 0;
-  const rate = parseInt(document.getElementById('payoutRate')?.value) || 0;
+  const cfg = getPayoutCfg();
   const all = _payoutData.riders || [];
+  const t2Label = isFinite(cfg.t2Start) ? cfg.t2Start : '–';
 
-  // 전체 기사에 초과분 계산
-  const withOver = all
-    .map(r => ({ ...r, over: Math.max(0, r.total - threshold) }))
+  // 전체 기사에 누진 지급액 계산
+  const withPay = all
+    .map(r => ({ ...r, ...calcPayout(r.total, cfg) }))
     .sort((a,b) => b.total - a.total);
 
-  const targets = withOver.filter(r => r.over > 0);
+  const targets   = withPay.filter(r => r.over > 0);
   const totalOver = targets.reduce((a,r) => a + r.over, 0);
-  const totalPay  = totalOver * rate;
+  const totalC1   = targets.reduce((a,r) => a + r.c1, 0);
+  const totalC2   = targets.reduce((a,r) => a + r.c2, 0);
+  const totalPay  = targets.reduce((a,r) => a + r.amount, 0);
 
-  // 화면에 표시할 목록 (뷰 모드에 따라)
   const shown = _payoutView === 'all'
-    ? withOver
-    : [...targets].sort((a,b) => b.over - a.over);
+    ? withPay
+    : [...targets].sort((a,b) => b.amount - a.amount);
 
-  // 요약
+  // ── 요약 ──
   const sum = document.getElementById('payoutSummary');
   if (sum) sum.innerHTML = `
     <div class="payout-sum-card">
@@ -1889,49 +1953,81 @@ function renderPayout() {
       <div class="payout-sum-sub">전체 ${all.length}명 중</div>
     </div>
     <div class="payout-sum-card">
-      <div class="payout-sum-label">총 초과 건수 (SLA 완료 기준)</div>
+      <div class="payout-sum-label">총 지급 대상 건수</div>
       <div class="payout-sum-val">${totalOver.toLocaleString()}건</div>
-      <div class="payout-sum-sub">${threshold}건 초과분</div>
+      <div class="payout-sum-sub">${cfg.t1Start}건부터 누적</div>
     </div>
     <div class="payout-sum-card total">
       <div class="payout-sum-label">예상 지급 총액</div>
       <div class="payout-sum-val">${totalPay.toLocaleString()}원</div>
-      <div class="payout-sum-sub">${totalOver.toLocaleString()}건 × ${rate.toLocaleString()}원</div>
+      <div class="payout-sum-sub">
+        ${totalC1.toLocaleString()}건 × ${cfg.t1Rate.toLocaleString()}원
+        ${totalC2 > 0 ? ` + ${totalC2.toLocaleString()}건 × ${cfg.t2Rate.toLocaleString()}원` : ''}
+      </div>
+      <div class="payout-tiers">
+        <div class="payout-tier t1">
+          <span>${cfg.t1Start}~${isFinite(cfg.t2Start)?cfg.t2Start-1:''}건</span>
+          <span class="payout-tier-cnt">${totalC1.toLocaleString()}건</span>
+          <span class="payout-tier-amt">${(totalC1*cfg.t1Rate).toLocaleString()}원</span>
+        </div>
+        ${isFinite(cfg.t2Start) ? `<div class="payout-tier t2">
+          <span>${cfg.t2Start}건~</span>
+          <span class="payout-tier-cnt">${totalC2.toLocaleString()}건</span>
+          <span class="payout-tier-amt">${(totalC2*cfg.t2Rate).toLocaleString()}원</span>
+        </div>` : ''}
+      </div>
     </div>`;
 
   setText('payoutListTitle', _payoutView === 'all' ? '전체 기사' : '대상 기사');
   setText('payoutCount', _payoutView === 'all'
-    ? `${withOver.length}명 (초과 ${targets.length}명)`
+    ? `${withPay.length}명 (대상 ${targets.length}명)`
     : `${targets.length}명`);
-  setText('payoutInfo', `SLA 배달완료 합계 ${threshold}건 초과 시 건당 ${rate.toLocaleString()}원 지급`);
+  setText('payoutInfo',
+    `SLA 배달완료 합계 기준 · ${cfg.t1Start}건부터 건당 ${cfg.t1Rate.toLocaleString()}원`
+    + (isFinite(cfg.t2Start) ? `, ${cfg.t2Start}건부터 건당 ${cfg.t2Rate.toLocaleString()}원 (누진)` : ''));
 
-  // 목록
+  // ── 목록 ──
   const list = document.getElementById('payoutList');
   if (!list) return;
   if (!shown.length) {
     list.innerHTML = `<div style="text-align:center;color:var(--text-muted);padding:32px 0;font-size:12px">
-      ${_payoutView === 'all' ? '이 세트 기간에 기사 데이터가 없습니다' : threshold + '건을 초과한 기사가 없습니다'}</div>`;
+      ${_payoutView === 'all'
+        ? '이 세트 기간에 기사 데이터가 없습니다'
+        : cfg.t1Start + '건 이상 수행한 기사가 없습니다'}</div>`;
     return;
   }
 
   list.innerHTML = shown.map(r => {
-    const isOver = r.over > 0;
+    const isTarget = r.over > 0;
+    const toGo = cfg.t1Start - r.total;   // 1구간까지 남은 건수
     return `
-    <div class="payout-card${isOver ? '' : ' dim'}">
+    <div class="payout-card${isTarget ? '' : ' dim'}">
       <div class="payout-card-top">
         <div class="payout-name">${r.name}</div>
-        ${isOver
-          ? `<div class="payout-amount">${(r.over * rate).toLocaleString()}원</div>`
+        ${isTarget
+          ? `<div class="payout-amount">${r.amount.toLocaleString()}원</div>`
           : `<div class="payout-amount none">–</div>`}
       </div>
       <div class="payout-meta">
         <span>SLA 완료 <strong>${r.total}건</strong></span>
-        ${isOver
-          ? `<span>초과 <span class="payout-over">+${r.over}건</span></span>`
-          : `<span style="color:var(--text-muted)">기준까지 ${threshold - r.total}건</span>`}
+        ${isTarget
+          ? `<span>지급 <span class="payout-over">${r.over}건</span></span>`
+          : `<span style="color:var(--text-muted)">${cfg.t1Start}건까지 ${toGo}건</span>`}
         <span>근무 ${r.work_days}일</span>
       </div>
-      <div class="payout-slots">
+      ${isTarget ? `<div class="payout-tiers">
+        <div class="payout-tier t1">
+          <span>${cfg.t1Start}~${isFinite(cfg.t2Start)?cfg.t2Start-1:''}건</span>
+          <span class="payout-tier-cnt">${r.c1}건</span>
+          <span class="payout-tier-amt">${(r.c1*cfg.t1Rate).toLocaleString()}원</span>
+        </div>
+        ${isFinite(cfg.t2Start) ? `<div class="payout-tier t2">
+          <span>${cfg.t2Start}건~</span>
+          <span class="payout-tier-cnt">${r.c2}건</span>
+          <span class="payout-tier-amt">${(r.c2*cfg.t2Rate).toLocaleString()}원</span>
+        </div>` : ''}
+      </div>` : ''}
+      <div class="payout-slots" style="margin-top:6px">
         <div class="payout-slot"><div class="payout-slot-label">아침점심</div><div class="payout-slot-val mo">${r.morning}</div></div>
         <div class="payout-slot"><div class="payout-slot-label">오후논피크</div><div class="payout-slot-val af">${r.afternoon}</div></div>
         <div class="payout-slot"><div class="payout-slot-label">저녁피크</div><div class="payout-slot-val ev">${r.evening}</div></div>
